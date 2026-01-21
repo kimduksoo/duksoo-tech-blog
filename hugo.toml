@@ -1,0 +1,39 @@
+baseURL = '/'
+languageCode = 'ko-kr'
+title = "duksoo.dev"
+theme = 'hugo-geekdoc'
+
+# Geekdoc 설정
+[params]
+  description = "Cloud Engineer의 기술 블로그"
+  geekdocLogo = "logo.svg"
+
+  # 검색 활성화
+  geekdocSearch = true
+  geekdocSearchShowParent = true
+
+  # 다크모드
+  geekdocDarkModeDim = false
+  geekdocDarkModeCode = true
+
+  # 네비게이션
+  geekdocCollapseSection = true
+  geekdocToC = 3
+
+  # 기타
+  geekdocRepo = "https://github.com/duksoo-son"
+  geekdocEditPath = ""
+
+[markup]
+  [markup.highlight]
+    anchorLineNos = false
+    codeFences = true
+    guessSyntax = false
+    lineNos = true
+    style = "monokai"
+  [markup.tableOfContents]
+    endLevel = 3
+    startLevel = 1
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true

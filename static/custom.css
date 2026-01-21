@@ -1,0 +1,43 @@
+/* Custom styles for Duksoo's Tech Blog */
+
+/* Default & Light mode */
+:root,
+:root[color-theme="light"] {
+  --header-background: #0f172a;
+  --footer-background: #0f172a;
+  --footer-link-color: #94a3b8;
+  --footer-link-color-visited: #94a3b8;
+}
+
+/* Dark mode */
+:root[color-theme="dark"] {
+  --header-background: #0f172a;
+  --footer-background: #0f172a;
+  --footer-link-color: #94a3b8;
+  --footer-link-color-visited: #94a3b8;
+  --body-font-color: #e2e8f0;
+  /* Code block - light background */
+  --code-background: #f1f5f9;
+  --code-accent-color: #e2e8f0;
+  --code-accent-color-lite: #e2e8f0;
+  --code-font-color: #1e293b;
+  --code-copy-background: #f1f5f9;
+  --code-copy-font-color: #475569;
+}
+
+/* Mermaid diagram - base styles */
+.mermaid {
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* Mermaid - white background in auto & light mode */
+:root .mermaid,
+:root[color-theme="light"] .mermaid {
+  background-color: #ffffff;
+}
+
+/* Mermaid - light gray background in dark mode */
+:root[color-theme="dark"] .mermaid {
+  background-color: #f8fafc;
+}
