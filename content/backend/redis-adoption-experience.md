@@ -3,7 +3,7 @@ title: "Redis 타임아웃, 원인은 Redis가 아니었다"
 weight: 5
 description: "Redis 도입 후 타임아웃이 발생했는데, Redis slow log는 비어있었다. 진짜 원인은 데이터 크기였다."
 tags: ["Redis", "캐시", "트러블슈팅"]
-keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache"]
+keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache", "Lettuce"]
 ---
 
 Redis를 도입하고 나서 간헐적으로 타임아웃이 발생했다. 당연히 Redis가 느린 줄 알았는데, slow log를 확인해보니 비어있었다. Redis는 빠르게 응답하고 있었다. 그럼 뭐가 문제였을까?
@@ -74,6 +74,38 @@ flowchart LR
 | **타임아웃 발생 위치** | APP |
 | **타임아웃 원인** | 네트워크 전송 + 역직렬화 시간 초과 |
 | **Redis** | 빠르게 처리함 (slow log 없음) |
+
+### Redis 클라이언트 타임아웃
+
+Java에서 Redis 클라이언트로 많이 사용하는 Lettuce의 기본 타임아웃은 **60초**다.
+
+| 항목 | 기본값 |
+|------|--------|
+| Command Timeout | 60초 |
+| Connection Timeout | 10초 |
+
+하지만 APP에서 타임아웃을 더 짧게 설정하는 경우가 많다. 확인해보니 우리 APP은 **3초**로 설정되어 있었다.
+
+```java
+// 실제 설정
+LettucePoolingClientConfiguration.builder()
+    .commandTimeout(Duration.ofSeconds(3))  // 3초!
+    .build();
+```
+
+```mermaid
+sequenceDiagram
+    participant APP as APP
+    participant Redis as Redis
+
+    APP->>Redis: GET all-codes
+    Redis-->>APP: 1MB 응답 전송 중...
+    APP->>APP: 데이터 수신 + 역직렬화 중...
+
+    Note over APP: 3초 초과 → 타임아웃!
+```
+
+1MB 데이터를 네트워크로 받고 역직렬화하는데 3초 안에 끝나지 않아서 타임아웃이 발생한 것이다.
 
 ### 역직렬화란
 
