@@ -25,6 +25,10 @@ flowchart LR
         AM[Alertmanager<br/>라우팅/그룹핑]
     end
 
+    subgraph Grafana[Grafana]
+        AlertUI[Alerting UI<br/>알림 현황 조회]
+    end
+
     subgraph Slack[Slack]
         Ch1[#alerts-service]
         Ch2[#alerts-infra]
@@ -36,9 +40,10 @@ flowchart LR
     Ruler -->|알림 발생| AM
     AM -->|namespace: ajdcar| Ch1
     AM -->|namespace: observability| Ch2
+    AM -->|알림 상태| AlertUI
 ```
 
-Ruler가 주기적으로 메트릭을 쿼리하고, 조건이 충족되면 Alertmanager로 알림을 보낸다. Alertmanager는 알림을 그룹핑하고, 라우팅 규칙에 따라 적절한 Slack 채널로 전송한다.
+Ruler가 주기적으로 메트릭을 쿼리하고, 조건이 충족되면 Alertmanager로 알림을 보낸다. Alertmanager는 알림을 그룹핑하고, 라우팅 규칙에 따라 적절한 Slack 채널로 전송한다. Grafana에서는 현재 발생 중인 알림을 조회하고 히스토리를 확인할 수 있다.
 
 ## 알림 구조 선택
 
