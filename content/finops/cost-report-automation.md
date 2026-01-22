@@ -50,7 +50,7 @@ CloudCheckr 빌링 데이터는 **3일 정도 지연**이 있다. 오늘 조회�
 - 상위 서비스 비용
 - 비용 급증 시 경고 표시
 
-![일일 비용 리포트](/images/cost-report-automation/daily-report.png)
+![일일 비용 리포트](/images/cost-report-automation/daily-report-lambda.png)
 
 ## 2단계: AI 분석 추가 (Agent)
 
@@ -83,7 +83,7 @@ flowchart LR
 3. 분석 결과를 스레드에 댓글로 작성
 4. 이상 있으면 담당자 태그
 
-![에이전트 분석 댓글](/images/cost-report-automation/daily-report.png)
+![에이전트 분석 댓글](/images/cost-report-automation/daily-report-agent.png)
 
 ## 핵심 설계: 정량적 데이터와 LLM 분리
 
