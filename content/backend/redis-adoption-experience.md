@@ -39,41 +39,12 @@ sequenceDiagram
     Network->>APP: 데이터 수신
     APP->>APP: 역직렬화
 
-    Note over APP: 총 시간 초과 → 타임아웃!
+    Note over APP: 3초 초과 → 타임아웃!
 ```
 
 **Redis slow log가 비어있던 이유:**
 - Redis 처리 시간은 5ms로 빠름 (slow log 기준 미달)
 - 병목은 네트워크 전송과 APP의 역직렬화
-
-### 타임아웃은 어디서 발생하나
-
-타임아웃은 **APP** 에서 발생한다. Redis가 아니다.
-
-```mermaid
-flowchart LR
-    subgraph APP["APP"]
-        Request[요청]
-        Deser[역직렬화<br/>String → 객체]
-    end
-
-    subgraph Redis["Redis"]
-        Process[GET 처리<br/>5ms]
-    end
-
-    Request -->|요청| Redis
-    Redis -->|1MB 응답| Deser
-
-    style Request fill:#ff6b6b,color:#fff
-    style Deser fill:#ff6b6b,color:#fff
-    style Process fill:#51cf66,color:#fff
-```
-
-| 항목 | 설명 |
-|------|------|
-| **타임아웃 발생 위치** | APP |
-| **타임아웃 원인** | 네트워크 전송 + 역직렬화 시간 초과 |
-| **Redis** | 빠르게 처리함 (slow log 없음) |
 
 ### Redis 클라이언트 타임아웃
 
