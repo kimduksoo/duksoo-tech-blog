@@ -23,37 +23,77 @@ Datadog 비용 부담으로 자체 관측성 플랫폼을 검토하게 되었다
 
 ```mermaid
 flowchart TB
-    subgraph Apps[애플리케이션]
-        App1[Pod A]
-        App2[Pod B]
+    subgraph Apps[애플리케이션 Pod]
+        App1[Pod A<br/>stdout/stderr]
+        App2[Pod B<br/>OTLP SDK]
     end
 
-    subgraph Collectors[수집 계층]
-        Alloy[Alloy DaemonSet]
+    subgraph Alloy[Alloy DaemonSet]
+        direction TB
+        Pull[Pull 방식<br/>cAdvisor 스크레이프]
+        Push[Push 방식<br/>OTLP Receiver :4317]
     end
 
-    subgraph LGTM[LGTM 스택]
-        Loki[Loki - 로그]
-        Tempo[Tempo - 트레이스]
-        Mimir[Mimir - 메트릭]
-        Grafana[Grafana - 시각화]
+    subgraph Loki[Loki - Single Binary]
+        LokiGW[Gateway]
+        LokiSB[Single Binary<br/>Write + Read + Backend]
     end
 
-    subgraph Storage[저장소]
-        S3[(S3)]
+    subgraph Mimir[Mimir - Distributed]
+        MimirGW[Gateway]
+        Distributor
+        Ingester
+        Querier
+        Compactor
+        StoreGW[Store Gateway]
+        Ruler
+        AM[Alertmanager]
     end
 
-    App1 -->|로그, 메트릭| Alloy
-    App2 -->|OTLP| Alloy
-    Alloy -->|Push| Loki
-    Alloy -->|Push| Tempo
-    Alloy -->|Remote Write| Mimir
-    Loki --> S3
-    Tempo --> S3
-    Mimir --> S3
-    Grafana --> Loki
-    Grafana --> Tempo
-    Grafana --> Mimir
+    subgraph Tempo[Tempo - Single Binary]
+        TempoSB[Single Binary]
+    end
+
+    subgraph Grafana[Grafana]
+        Dashboard[Dashboard<br/>Explore]
+    end
+
+    subgraph S3[S3 Storage]
+        S3Loki[(ajdcar-dev-loki-storage)]
+        S3Mimir[(ajdcar-dev-mimir-storage)]
+        S3Tempo[(ajdcar-dev-tempo-storage)]
+    end
+
+    subgraph Slack[알림]
+        SlackCh[Slack Channel]
+    end
+
+    %% 데이터 흐름
+    App1 -->|/var/log/pods| Pull
+    App2 -->|OTLP gRPC| Push
+
+    Pull -->|메트릭| MimirGW
+    Push -->|트레이스| TempoSB
+    Push -->|로그| LokiGW
+    Push -->|메트릭| MimirGW
+
+    LokiGW --> LokiSB
+    LokiSB --> S3Loki
+
+    MimirGW --> Distributor
+    Distributor --> Ingester
+    Ingester --> S3Mimir
+    Querier --> StoreGW
+    StoreGW --> S3Mimir
+    Compactor --> S3Mimir
+    Ruler --> AM
+    AM -->|Alert| SlackCh
+
+    TempoSB --> S3Tempo
+
+    Dashboard -->|LogQL| LokiGW
+    Dashboard -->|PromQL| MimirGW
+    Dashboard -->|TraceQL| TempoSB
 ```
 
 핵심은 **Alloy**다. Grafana Labs에서 만든 통합 수집기로, 기존 Promtail, OpenTelemetry Collector의 역할을 모두 대체한다. 2026년 3월 Promtail deprecated 예정이라 Alloy를 선택했다.
