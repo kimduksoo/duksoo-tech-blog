@@ -10,6 +10,36 @@ keywords: ["Mimir Alertmanager", "Kubernetes 알림", "EKS 알림", "PromQL 알�
 
 LGTM 스택에서는 Mimir에 내장된 Ruler와 Alertmanager를 사용한다. Prometheus Alertmanager와 동일한 방식으로 동작한다.
 
+## 알림 아키텍처
+
+```mermaid
+flowchart LR
+    subgraph GitOps[GitOps 관리]
+        Git[Git Repository]
+        CM[ConfigMap]
+    end
+
+    subgraph Mimir[Mimir]
+        Ruler[Ruler<br/>PromQL 평가]
+        Storage[(Metrics<br/>Storage)]
+        AM[Alertmanager<br/>라우팅/그룹핑]
+    end
+
+    subgraph Slack[Slack]
+        Ch1[#alerts-service]
+        Ch2[#alerts-infra]
+    end
+
+    Git -->|Helm Deploy| CM
+    CM -->|Alert Rules| Ruler
+    Storage -->|메트릭 쿼리| Ruler
+    Ruler -->|알림 발생| AM
+    AM -->|namespace: ajdcar| Ch1
+    AM -->|namespace: observability| Ch2
+```
+
+Ruler가 주기적으로 메트릭을 쿼리하고, 조건이 충족되면 Alertmanager로 알림을 보낸다. Alertmanager는 알림을 그룹핑하고, 라우팅 규칙에 따라 적절한 Slack 채널로 전송한다.
+
 ## 알림 구조 선택
 
 알림을 설정하는 방법은 여러 가지가 있다.
