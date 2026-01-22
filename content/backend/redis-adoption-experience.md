@@ -55,7 +55,7 @@ sequenceDiagram
 
 ### 타임아웃은 어디서 발생하나
 
-타임아웃은 **Lettuce(Redis 클라이언트)**에서 발생한다. Redis가 아니다.
+타임아웃은 **Lettuce(Redis 클라이언트)** 에서 발생한다. Redis가 아니다.
 
 ```mermaid
 flowchart LR
