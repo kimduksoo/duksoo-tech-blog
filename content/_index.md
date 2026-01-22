@@ -26,6 +26,6 @@ EC2, Lambda, 비용 최적화
 <--->
 
 ### [Observability](/observability/)
-Datadog, 모니터링, 비용 최적화
+Datadog, LGTM, 모니터링
 
 {{< /columns >}}
