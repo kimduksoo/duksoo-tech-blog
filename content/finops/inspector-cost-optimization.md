@@ -1,5 +1,5 @@
 ---
-title: "Inspector 비용, Dev가 Prod보다 10배 높았던 이유"
+title: "Inspector 비용, Dev가 Prod보다 20배 높았던 이유"
 weight: 3
 description: "AWS Inspector와 ECR Enhanced Scanning의 비용 구조를 이해하고, 환경별 적절한 보안 스캔 전략으로 비용을 최적화한 경험."
 tags: ["AWS", "Inspector", "ECR", "보안", "비용최적화", "FinOps"]
@@ -8,7 +8,7 @@ keywords: ["AWS Inspector 비용", "ECR Enhanced Scanning", "컨테이너 보안
 
 보안은 공짜가 아니다. 하지만 환경별로 필요한 보안 수준은 다르다. Dev 환경에 Prod 수준의 보안 모니터링을 적용하면 비용만 낭비된다.
 
-AWS Inspector 비용 리포트를 보다가 이상한 점을 발견했다. Dev 환경이 Prod보다 거의 10배 비용이 나오고 있었다. 원인을 추적하다 보니 ECR Enhanced Scanning의 동작 방식을 제대로 이해하게 되었다.
+AWS Inspector 비용 리포트를 보다가 이상한 점을 발견했다. Dev 환경이 Prod보다 거의 20배 비용이 나오고 있었다. 원인을 추적하다 보니 ECR Enhanced Scanning의 동작 방식을 제대로 이해하게 되었다.
 
 ## 문제 상황
 
