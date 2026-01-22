@@ -20,8 +20,8 @@ EKS, 클러스터 운영, 트러블슈팅
 
 <--->
 
-### [Terraform](/terraform/)
-IaC, 모듈 설계, AWS 인프라
+### [AWS](/aws/)
+EC2, Lambda, 비용 최적화
 
 <--->
 
