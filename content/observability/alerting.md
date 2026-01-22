@@ -206,20 +206,20 @@ alertmanager:
 ### Slack Receiver 설정
 
 ```yaml
-    receivers:
-      - name: 'slack-default'
-        slack_configs:
-          - api_url: 'https://hooks.slack.com/services/...'
-            channel: '#alerts'
-            send_resolved: true
-            title: '{{ .Status | toUpper }} [{{ .CommonLabels.env | toUpper }}] [{{ .CommonLabels.severity }}] {{ .CommonLabels.alertname }}'
-            text: |
-              *Environment:* {{ .CommonLabels.env }}
-              *Cluster:* {{ .CommonLabels.cluster }}
-              *Namespace:* {{ .CommonLabels.namespace }}
-              *Pod:* {{ .CommonLabels.pod }}
-              *Summary:* {{ .CommonAnnotations.summary }}
-              *Description:* {{ .CommonAnnotations.description }}
+receivers:
+  - name: 'slack-default'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/...'
+        channel: '#alerts'
+        send_resolved: true
+        title: >-
+          {{ .Status | toUpper }}
+          [{{ .CommonLabels.severity }}]
+          {{ .CommonLabels.alertname }}
+        text: |
+          *Namespace:* {{ .CommonLabels.namespace }}
+          *Pod:* {{ .CommonLabels.pod }}
+          *Summary:* {{ .CommonAnnotations.summary }}
 ```
 
 `send_resolved: true`로 설정하면 알림이 해소되었을 때도 알림이 온다. 장애가 복구되었는지 확인할 수 있다.
