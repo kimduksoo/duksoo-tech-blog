@@ -6,8 +6,9 @@ tags: ["LGTM", "Grafana", "Loki", "Mimir", "Tempo", "EKS", "Kubernetes", "모니
 keywords: ["LGTM 스택", "Grafana Loki", "Grafana Mimir", "Grafana Tempo", "EKS 모니터링", "Kubernetes Observability"]
 ---
 
-Datadog 비용 부담으로 자체 관측성 플랫폼을 검토하게 되었다.
-이 글에서는 EKS 환경에 LGTM 스택을 구축한 과정을 공유한다.
+Observability는 선택이 아니라 필수다. 하지만 SaaS 모니터링 비용이 인프라 비용보다 높아지는 순간이 온다. 그때가 자체 구축을 고민할 타이밍이다.
+
+Datadog을 메인으로 사용하고 있었지만, 모든 환경에 적용하기엔 비용 부담이 있었다. Observability가 아예 없는 환경이 생기는 것보다는, 오픈소스로라도 갖추는 게 낫다고 판단했다. LGTM 스택(Loki, Grafana, Tempo, Mimir)을 EKS에 구축한 과정을 공유한다.
 
 ## 배경
 

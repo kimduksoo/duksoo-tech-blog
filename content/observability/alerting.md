@@ -6,9 +6,9 @@ tags: ["Mimir", "Alertmanager", "알림", "EKS", "Kubernetes", "모니터링", "
 keywords: ["Mimir Alertmanager", "Kubernetes 알림", "EKS 알림", "PromQL 알림", "인프라 모니터링"]
 ---
 
-대시보드가 있어도 24시간 쳐다보고 있을 수는 없다. 문제가 생기면 알림이 와야 한다.
+Observability의 최종 목표는 MTTD(Mean Time To Detect)를 줄이는 것이다. 대시보드가 아무리 훌륭해도 24시간 지켜볼 수는 없다. Push 기반 알림이 있어야 문제를 빠르게 인지할 수 있다.
 
-LGTM 스택에서는 Mimir에 내장된 Ruler와 Alertmanager를 사용한다. Prometheus Alertmanager와 동일한 방식으로 동작한다.
+LGTM 스택에서 Mimir Ruler와 Alertmanager를 활용해 알림 시스템을 구축했다. 알림 룰을 GitOps로 관리하고, 알림 폭탄을 방지하기 위한 설계 포인트를 정리한다.
 
 ## 알림 아키텍처
 

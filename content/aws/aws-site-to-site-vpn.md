@@ -6,7 +6,9 @@ tags: ["AWS", "VPN", "Site-to-Site", "IPsec", "네트워크"]
 keywords: ["AWS VPN", "Site-to-Site VPN", "IPsec VPN", "VPN 구성", "AWS 네트워크"]
 ---
 
-AWS Site-to-Site VPN을 개발망에 구성하면서 정리한 내용이다.
+Site-to-Site VPN은 단순한 터널이 아니다. IKE/IPsec 협상, Initiator/Responder 역할, 터널 이중화까지 고려할 게 많다. 특히 AWS는 항상 Responder로 동작한다는 점을 모르면 연결 자체가 안 된다.
+
+AWS Site-to-Site VPN을 개발망에 구성하면서 알게 된 핵심 개념과 구성 시 체크해야 할 항목들을 정리했다.
 
 ## 기본 구조
 
