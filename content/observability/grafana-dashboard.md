@@ -3,12 +3,19 @@ title: "Grafana 대시보드 구축"
 weight: 2
 ---
 
-LGTM 스택 구축 후, 운영에 필요한 대시보드를 직접 만들었다.
-이 글에서는 EKS 인프라 대시보드와 APM 대시보드 구성 과정을 공유한다.
+LGTM 스택을 구축하고 나니, 다음 질문이 생겼다. "뭘 봐야 하지?"
 
-## 배경
+메트릭은 쌓이고 있는데, 대시보드가 없으니 의미가 없었다. 커뮤니티 대시보드를 몇 개 import 해봤지만, 우리 환경과 맞지 않는 부분이 많았다. 결국 직접 만들기로 했다.
 
-Grafana에는 커뮤니티 대시보드가 많지만, 우리 환경에 딱 맞는 건 없었다. cAdvisor 메트릭 기반으로 필요한 지표만 골라서 직접 구성했다.
+## 어떤 대시보드가 필요한가
+
+운영 관점에서 세 가지가 필요했다.
+
+1. **인프라 대시보드**: 클러스터 전체 상태, 노드 헬스, 리소스 사용량
+2. **APM 대시보드**: 서비스별 요청량, 에러율, 레이턴시
+3. **파이프라인 대시보드**: LGTM 스택 자체의 헬스 체크
+
+Datadog을 쓸 때는 기본 제공되던 것들이다. LGTM 스택에서는 직접 구성해야 한다.
 
 ## EKS Infrastructure 대시보드
 
@@ -16,68 +23,94 @@ Grafana에는 커뮤니티 대시보드가 많지만, 우리 환경에 딱 맞�
 
 ![EKS Infrastructure Dashboard](/images/grafana-dashboard/eks-infrastructure.png)
 
-### 구성 섹션
+### 설계 의도
 
-| 섹션 | 내용 |
-|------|------|
-| Cluster Overview | Ready Nodes, Running Pods, CPU/Memory 총량 및 트렌드 |
-| Node Health | 노드별 스펙, CPU/Memory 사용률 |
-| Pod Status | Pod 상태별 현황 |
-| Deployment Status | Deployment 가용성 |
-| Resource Usage | 컨테이너별 리소스 사용량 |
-| Network & Disk | 네트워크 I/O, 디스크 사용량 |
+대시보드를 열었을 때 3초 안에 "지금 클러스터가 정상인가?"를 판단할 수 있어야 했다.
 
-### 주요 PromQL 쿼리
+상단에는 핵심 숫자를 배치했다:
+- Ready Nodes / Running Pods → 클러스터가 살아있는가
+- Total CPU / Memory → 전체 리소스 현황
+- Trend 그래프 → 급격한 변화가 있는가
 
-**Ready Nodes:**
+그 아래로 드릴다운 할 수 있도록 섹션을 구성했다:
+
+| 섹션 | 확인 포인트 |
+|------|------------|
+| Node Health | 특정 노드에 문제가 있는가 |
+| Pod Status | Pending, Failed Pod가 있는가 |
+| Deployment Status | Replica가 부족한 Deployment가 있는가 |
+| Resource Usage | 리소스를 과도하게 사용하는 컨테이너가 있는가 |
+
+### 핵심 쿼리
+
+노드 상태 확인:
 ```promql
 sum(kube_node_status_condition{condition="Ready", status="true"})
 ```
 
-**Running Pods:**
+CPU 사용률 (노드별):
 ```promql
-sum(kube_pod_status_phase{phase="Running", namespace=~"$namespace"})
-```
-
-**CPU Usage %:**
-```promql
-sum(rate(container_cpu_usage_seconds_total{namespace=~"$namespace"}[5m]))
-/ sum(kube_node_status_allocatable{resource="cpu"}) * 100
+sum(rate(container_cpu_usage_seconds_total[5m])) by (node)
+/ on(node) kube_node_status_allocatable{resource="cpu"} * 100
 ```
 
 ## APM 대시보드
 
-서비스별 요청량, 에러율, 레이턴시를 모니터링하는 대시보드다.
+서비스별 트래픽과 성능을 모니터링하는 대시보드다.
 
 ![APM Dashboard](/images/grafana-dashboard/apm-dashboard.png)
 
-### 구성 섹션
+### 설계 의도
 
-| 섹션 | 내용 |
-|------|------|
-| Service Summary | 요청 수, 에러 수, 레이턴시 분포, 버전 타임라인 |
-| Resources | Top 5 요청 엔드포인트, Top 5 레이턴시, Top 5 에러 |
+"지금 서비스에 문제가 있는가?"를 빠르게 파악하는 것이 목적이다.
 
-### 주요 PromQL 쿼리
+RED 메트릭(Rate, Errors, Duration)을 기준으로 구성했다:
+- **Rate**: 요청량 추이, 평소 대비 급증/급감 확인
+- **Errors**: 에러 발생 현황, 4xx/5xx 구분
+- **Duration**: 레이턴시 분포, p50/p95/p99 확인
 
-**Requests per Second:**
+Version Timeline 패널은 배포 시점을 표시한다. 성능 저하가 발생했을 때 "최근 배포 때문인가?"를 바로 확인할 수 있다.
+
+### 핵심 쿼리
+
+요청량:
 ```promql
 sum(rate(http_server_requests_seconds_count{job="$job"}[1m]))
 ```
 
-**Error Rate:**
+p95 레이턴시:
 ```promql
-sum(rate(http_server_requests_seconds_count{job="$job", status=~"4..|5.."}[1m]))
+histogram_quantile(0.95,
+  sum(rate(http_server_requests_seconds_bucket{job="$job"}[5m])) by (le)
+)
 ```
 
-**p95 Latency:**
+에러율:
 ```promql
-histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job="$job"}[5m])) by (le))
+sum(rate(http_server_requests_seconds_count{job="$job", status=~"5.."}[1m]))
+/ sum(rate(http_server_requests_seconds_count{job="$job"}[1m])) * 100
 ```
 
-## 대시보드 배포 방식
+## Observability Pipeline 대시보드
 
-대시보드 JSON 파일을 Git으로 관리하고, Grafana ConfigMap으로 자동 프로비저닝한다.
+LGTM 스택 자체를 모니터링하는 대시보드다. 수집기(Alloy)와 저장소(Loki, Mimir, Tempo) 컴포넌트의 헬스를 확인한다.
+
+![Observability Pipeline Dashboard](/images/grafana-dashboard/observability-pipeline.png)
+
+### 설계 의도
+
+모니터링 시스템이 죽으면 알림도 오지 않는다. LGTM 스택 자체의 상태를 별도로 감시해야 한다.
+
+주요 확인 포인트:
+- **Pod CPU/Memory Usage**: 각 컴포넌트의 리소스 사용량
+- **CPU Throttling**: 리소스 limit에 걸려서 throttling 되는지
+- **OOM Events**: 메모리 부족으로 재시작되는 Pod가 있는지
+
+Mimir Ingester나 Loki가 OOM으로 재시작되면 메트릭/로그 유실이 발생할 수 있다. 이 대시보드로 사전에 감지한다.
+
+## 대시보드 관리
+
+대시보드 JSON 파일은 Git으로 관리한다. Grafana UI에서 수정하면 export 해서 커밋한다.
 
 ```
 observability/grafana/dashboard/
@@ -86,8 +119,10 @@ observability/grafana/dashboard/
 └── observability-dashboard.json
 ```
 
-Grafana values에서 대시보드 프로바이더를 설정하면 Pod 재시작 시 자동으로 대시보드가 로드된다.
+ConfigMap 프로비저닝을 설정해두면 Grafana Pod 재시작 시 자동으로 로드된다. 대시보드가 코드로 관리되니 변경 이력 추적도 가능하다.
 
 ## 결과
 
-인프라 상태와 서비스 상태를 실시간으로 확인할 수 있게 되었다. 알림과 연계하여 문제 발생 시 대시보드에서 바로 원인을 파악할 수 있다.
+대시보드를 만들고 나니 모니터링이 실체화되었다. 알림이 오면 대시보드를 열어 상황을 파악하고, 어디를 더 봐야 하는지 판단할 수 있게 되었다.
+
+아직 부족한 부분도 있다. 로그와 트레이스 연동, 더 세분화된 서비스별 대시보드는 다음 단계로 남겨두었다.
