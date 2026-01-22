@@ -21,7 +21,7 @@ EKS, 클러스터 운영, 트러블슈팅
 <--->
 
 ### [AWS](/aws/)
-EC2, Lambda, 비용 최적화
+아키텍처, 인프라 설계, Well-Architected
 
 <--->
 
