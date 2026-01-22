@@ -1,5 +1,5 @@
 ---
-title: "AWS Site-to-Site VPN 구성 가이드"
+title: "Site-to-Site VPN 체크포인트"
 weight: 1
 ---
 
