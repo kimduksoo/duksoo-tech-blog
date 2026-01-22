@@ -2,8 +2,8 @@
 title: "Redis 타임아웃, 원인은 Redis가 아니었다"
 weight: 5
 description: "Redis 도입 후 타임아웃이 발생했는데, Redis slow log는 비어있었다. 진짜 원인은 데이터 크기였다."
-tags: ["Redis", "Kubernetes", "캐시", "트러블슈팅"]
-keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache"]
+tags: ["Redis", "Lettuce", "캐시", "트러블슈팅"]
+keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache", "Lettuce"]
 ---
 
 Redis를 도입하고 나서 간헐적으로 타임아웃이 발생했다. 당연히 Redis가 느린 줄 알았는데, slow log를 확인해보니 비어있었다. Redis는 빠르게 응답하고 있었다. 그럼 뭐가 문제였을까?
@@ -30,28 +30,76 @@ Redis가 느리면 slow log에 기록이 남아야 한다. 근데 비어있다? 
 
 ### 요청 흐름
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    전체 요청 시간                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   APP                  네트워크               Redis          │
-│   ┌────────┐          ┌────────┐          ┌────────┐       │
-│   │ 요청   │ ───────▶ │  전송  │ ───────▶ │  처리  │       │
-│   └────────┘          └────────┘          └────────┘       │
-│                                              5ms ✓         │
-│                                                             │
-│   ┌────────┐          ┌────────┐          ┌────────┐       │
-│   │ 역직렬화│ ◀─────── │  전송  │ ◀─────── │  응답  │       │
-│   └────────┘          └────────┘          └────────┘       │
-│   3000ms ❌           2000ms ❌              5ms ✓          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant APP as APP (Lettuce)
+    participant Network as 네트워크
+    participant Redis as Redis
+
+    Note over APP,Redis: Lettuce 타임아웃 5초 이내에 완료되어야 함
+
+    APP->>Network: GET all-codes
+    Network->>Redis: 요청 전송
+    Redis->>Redis: 처리 (5ms ✓)
+    Redis->>Network: 응답 (1MB)
+    Note over Network: 전송 2000ms ❌
+    Network->>APP: 데이터 수신
+    APP->>APP: 역직렬화 (3000ms ❌)
+
+    Note over APP: 총 5초 초과 → 타임아웃!
 ```
 
 **Redis slow log가 비어있던 이유:**
 - Redis 처리 시간은 5ms로 빠름 (slow log 기준 미달)
 - 병목은 네트워크 전송과 APP의 역직렬화
+
+### 타임아웃은 어디서 발생하나
+
+타임아웃은 **Lettuce(Redis 클라이언트)**에서 발생한다. Redis가 아니다.
+
+```mermaid
+flowchart LR
+    subgraph APP["APP (Spring Boot)"]
+        Lettuce[Lettuce Client<br/>타임아웃 5초 설정]
+        Deser[역직렬화<br/>String → 객체]
+    end
+
+    subgraph Redis["Redis"]
+        Process[GET 처리<br/>5ms]
+    end
+
+    Lettuce -->|요청| Redis
+    Redis -->|1MB 응답| Lettuce
+    Lettuce -->|JSON String| Deser
+
+    style Lettuce fill:#ff6b6b,color:#fff
+    style Process fill:#51cf66,color:#fff
+```
+
+| 항목 | 설명 |
+|------|------|
+| **타임아웃 설정 위치** | Lettuce (APP의 Redis 클라이언트) |
+| **타임아웃 원인** | 네트워크 전송 + 역직렬화 시간 초과 |
+| **Redis** | 빠르게 처리함 (slow log 없음) |
+
+### 역직렬화란
+
+Redis에서 받은 JSON 문자열을 Java 객체로 변환하는 과정이다.
+
+```java
+// Redis에서 받은 값 (1MB String)
+String json = "[{\"id\":1,\"name\":\"코드1\"}, {\"id\":2,...}, ... 1만건]";
+
+// 역직렬화 = String → Java 객체로 변환
+List<Code> codes = objectMapper.readValue(json, new TypeReference<>(){});
+```
+
+**역직렬화가 오래 걸리는 이유:**
+- JSON 문자열 파싱 (구문 분석)
+- 객체 1만 개 생성 (메모리 할당)
+- 각 필드에 값 매핑
+
+이 모든 과정이 Lettuce 타임아웃 시간 안에 끝나야 한다. 데이터가 크면 시간 안에 못 끝내고 타임아웃이 발생한다.
 
 ### 데이터 크기 확인
 
