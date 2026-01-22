@@ -108,9 +108,46 @@ LGTM 스택 자체를 모니터링하는 대시보드다. 수집기(Alloy)와 �
 
 Mimir Ingester나 Loki가 OOM으로 재시작되면 메트릭/로그 유실이 발생할 수 있다. 이 대시보드로 사전에 감지한다.
 
-## 대시보드 관리
+## 설계 시 고민
 
-대시보드 JSON 파일은 Git으로 관리한다. Grafana UI에서 수정하면 export 해서 커밋한다.
+### 로딩 성능
+
+대시보드에 패널이 많아지면 로딩이 느려진다. 처음엔 Row를 기본 접힘(collapsed) 상태로 설정해서 필요한 섹션만 펼쳐보는 방식을 고민했다.
+
+찾아보니 Grafana는 기본적으로 lazy loading을 지원한다. 뷰포트에 보이는 패널만 쿼리를 실행하고, 스크롤하면 그때 로딩한다. 덕분에 Row를 굳이 접어두지 않아도 초기 로딩이 무겁지 않았다.
+
+다만 상단 Overview 섹션은 항상 펼쳐두고, 세부 섹션은 필요에 따라 Row collapse를 활용했다.
+
+### GitOps 방식 관리
+
+대시보드를 UI에서만 관리하면 변경 이력 추적이 안 된다. 누가 언제 뭘 바꿨는지 알 수 없고, 롤백도 어렵다.
+
+대시보드 JSON을 Git에 저장하고, Grafana ConfigMap provisioning으로 자동 배포하는 방식을 선택했다.
+
+```yaml
+# grafana/values-common.yaml
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        folder: 'ajdcar'
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+```
+
+워크플로우:
+1. Grafana UI에서 대시보드 수정
+2. JSON export
+3. Git commit & push
+4. Helm upgrade 또는 Pod 재시작 시 자동 반영
+
+이렇게 하면 대시보드도 코드처럼 리뷰하고 관리할 수 있다.
+
+## 대시보드 파일 구조
+
+대시보드 JSON 파일은 Git으로 관리한다.
 
 ```
 observability/grafana/dashboard/
