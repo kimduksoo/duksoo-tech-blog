@@ -40,22 +40,23 @@ JVM 애플리케이션의 Cold Start 문제였다.
 
 기존에는 ReadinessProbe만 설정되어 있었는데, initialDelaySeconds가 10초로 짧았다. JVM 워밍업에는 턱없이 부족한 시간이었다.
 
-## ReadinessProbe vs StartupProbe
+## 왜 ReadinessProbe만으로 부족했나
 
-둘의 역할이 다르다.
+단순히 `initialDelaySeconds`를 늘리면 되지 않을까? 문제는 **엔드포인트의 체크 범위**였다.
 
-| Probe | 역할 | 실패 시 동작 |
-|-------|------|-------------|
-| StartupProbe | 애플리케이션 시작 완료 확인 | 컨테이너 재시작 |
-| ReadinessProbe | 트래픽 수신 가능 여부 | 트래픽만 차단 (Pod 유지) |
-| LivenessProbe | 애플리케이션 정상 동작 여부 | 컨테이너 재시작 |
+기존 ReadinessProbe는 `/status/health-check`를 사용했다. 이 엔드포인트는 가벼운 상태 체크만 수행한다. JVM이 뜨면 바로 200 OK를 반환할 수 있다.
 
-**StartupProbe가 필요한 이유:**
-- ReadinessProbe는 주기적으로 계속 실행됨
-- StartupProbe는 시작 시에만 실행되고, 성공하면 비활성화됨
-- JVM처럼 시작이 오래 걸리는 애플리케이션에 적합
+하지만 실제 요청을 처리하려면 DB 커넥션 풀이 초기화되어야 한다. `/health-check`가 성공해도 DB는 아직 준비 안 됐을 수 있다.
 
-StartupProbe가 성공하기 전까지 ReadinessProbe와 LivenessProbe는 실행되지 않는다.
+```
+JVM 시작 → /health-check 성공 → 트래픽 유입 → DB 연결 안 됨 → 타임아웃
+```
+
+**필요한 것:**
+- 시작 시에는 DB 연결까지 확인하는 **무거운 체크**
+- 운영 중에는 10초마다 실행되는 **가벼운 체크**
+
+두 가지를 분리하려면 엔드포인트가 달라야 하고, 그래서 StartupProbe가 필요했다.
 
 ## 해결: StartupProbe + 전용 엔드포인트
 
@@ -153,8 +154,8 @@ StartupProbe 적용 후 Pod 재시작 시 초기 요청 실패가 사라졌다.
 JVM 애플리케이션의 Pod 재시작 시 초기 요청 실패 문제 해결:
 
 1. **원인 파악**: JVM Cold Start + DB 커넥션 초기화 시간
-2. **StartupProbe 도입**: 시작 완료 전까지 트래픽 차단
-3. **전용 엔드포인트**: DB 연결까지 확인하는 startup-check
+2. **엔드포인트 분리**: 시작용 무거운 체크 vs 운영용 가벼운 체크
+3. **StartupProbe 도입**: DB 연결까지 확인하는 `/startup-check`
 4. **충분한 시간 확보**: 최대 5분까지 워밍업 대기
 
-ReadinessProbe만으로는 JVM 애플리케이션의 느린 시작을 커버하기 어렵다. StartupProbe를 활용하면 워밍업이 완료된 후에만 트래픽을 받을 수 있다.
+핵심은 **체크 로직의 분리**다. 가벼운 health-check는 "JVM은 떴지만 DB 연결 안 됨" 상태를 잡지 못한다. 시작 시에만 무거운 체크를 수행하고, 운영 중에는 가벼운 체크를 유지하려면 StartupProbe와 ReadinessProbe를 분리해야 한다.
