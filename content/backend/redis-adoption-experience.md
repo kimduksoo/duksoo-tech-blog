@@ -2,8 +2,8 @@
 title: "Redis 타임아웃, 원인은 Redis가 아니었다"
 weight: 5
 description: "Redis 도입 후 타임아웃이 발생했는데, Redis slow log는 비어있었다. 진짜 원인은 데이터 크기였다."
-tags: ["Redis", "Lettuce", "캐시", "트러블슈팅"]
-keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache", "Lettuce"]
+tags: ["Redis", "캐시", "트러블슈팅"]
+keywords: ["Redis 타임아웃", "Redis 데이터 크기", "역직렬화", "ElastiCache"]
 ---
 
 Redis를 도입하고 나서 간헐적으로 타임아웃이 발생했다. 당연히 Redis가 느린 줄 알았는데, slow log를 확인해보니 비어있었다. Redis는 빠르게 응답하고 있었다. 그럼 뭐가 문제였을까?
@@ -17,11 +17,6 @@ Redis 도입 후 APP에서 간헐적으로 타임아웃 에러가 발생했다.
 - 특정 API에서만 발생
 - Redis slow log는 비어있음
 
-```
-APP 로그: Redis timeout after 5000ms
-Redis slow log: (비어있음)
-```
-
 Redis가 느리면 slow log에 기록이 남아야 한다. 근데 비어있다? Redis는 정상이라는 뜻이다.
 
 ## 원인 분석
@@ -32,21 +27,19 @@ Redis가 느리면 slow log에 기록이 남아야 한다. 근데 비어있다? 
 
 ```mermaid
 sequenceDiagram
-    participant APP as APP (Lettuce)
+    participant APP as APP
     participant Network as 네트워크
     participant Redis as Redis
-
-    Note over APP,Redis: Lettuce 타임아웃 5초 이내에 완료되어야 함
 
     APP->>Network: GET all-codes
     Network->>Redis: 요청 전송
     Redis->>Redis: 처리 (5ms ✓)
     Redis->>Network: 응답 (1MB)
-    Note over Network: 전송 2000ms ❌
+    Note over Network: 대용량 전송
     Network->>APP: 데이터 수신
-    APP->>APP: 역직렬화 (3000ms ❌)
+    APP->>APP: 역직렬화
 
-    Note over APP: 총 5초 초과 → 타임아웃!
+    Note over APP: 총 시간 초과 → 타임아웃!
 ```
 
 **Redis slow log가 비어있던 이유:**
@@ -55,12 +48,12 @@ sequenceDiagram
 
 ### 타임아웃은 어디서 발생하나
 
-타임아웃은 **Lettuce(Redis 클라이언트)** 에서 발생한다. Redis가 아니다.
+타임아웃은 **APP** 에서 발생한다. Redis가 아니다.
 
 ```mermaid
 flowchart LR
-    subgraph APP["APP (Spring Boot)"]
-        Lettuce[Lettuce Client<br/>타임아웃 5초 설정]
+    subgraph APP["APP"]
+        Request[요청]
         Deser[역직렬화<br/>String → 객체]
     end
 
@@ -68,17 +61,17 @@ flowchart LR
         Process[GET 처리<br/>5ms]
     end
 
-    Lettuce -->|요청| Redis
-    Redis -->|1MB 응답| Lettuce
-    Lettuce -->|JSON String| Deser
+    Request -->|요청| Redis
+    Redis -->|1MB 응답| Deser
 
-    style Lettuce fill:#ff6b6b,color:#fff
+    style Request fill:#ff6b6b,color:#fff
+    style Deser fill:#ff6b6b,color:#fff
     style Process fill:#51cf66,color:#fff
 ```
 
 | 항목 | 설명 |
 |------|------|
-| **타임아웃 설정 위치** | Lettuce (APP의 Redis 클라이언트) |
+| **타임아웃 발생 위치** | APP |
 | **타임아웃 원인** | 네트워크 전송 + 역직렬화 시간 초과 |
 | **Redis** | 빠르게 처리함 (slow log 없음) |
 
@@ -99,7 +92,7 @@ List<Code> codes = objectMapper.readValue(json, new TypeReference<>(){});
 - 객체 1만 개 생성 (메모리 할당)
 - 각 필드에 값 매핑
 
-이 모든 과정이 Lettuce 타임아웃 시간 안에 끝나야 한다. 데이터가 크면 시간 안에 못 끝내고 타임아웃이 발생한다.
+데이터가 크면 이 과정이 오래 걸려서 타임아웃이 발생한다.
 
 ### 데이터 크기 확인
 
@@ -107,7 +100,7 @@ List<Code> codes = objectMapper.readValue(json, new TypeReference<>(){});
 
 ```
 # 정상 케이스
-GET user:session:123 → 500 bytes → 1ms
+GET user:session:123 → 500 bytes → 정상
 
 # 문제 케이스
 GET all-codes → 1MB+ → 타임아웃
