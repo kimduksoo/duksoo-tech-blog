@@ -6,7 +6,9 @@ tags: ["AWS", "Datadog", "Lambda", "Claude", "Agent", "비용자동화", "FinOps
 keywords: ["AWS 비용 자동화", "비용 리포트 자동화", "Claude Agent", "FinOps 자동화"]
 ---
 
-매달 수동으로 비용을 집계하고 리뷰하는 프로세스가 있었다. 문제는 월 단위로 확인하면 이미 늦다는 것이다. 비용 이상을 일 단위로 감지하고, 원인까지 자동으로 분석하는 시스템을 만든 이야기다.
+클라우드 비용 관리는 결국 Observability 문제다. 시스템 장애를 모니터링하듯, 비용 이상도 실시간으로 감지하고 원인을 추적할 수 있어야 한다.
+
+기존에는 월 단위 수동 리뷰에 의존하고 있었다. MTTR(Mean Time To Resolve)이 아니라 MTTD(Mean Time To Detect)부터 문제였다. 이상 비용이 발생해도 한 달 뒤에야 알 수 있었다. Lambda로 일 단위 리포트를 자동화하고, Claude Agent로 이상 탐지와 원인 분석까지 자동화한 과정을 공유한다.
 
 ## 문제 상황
 
