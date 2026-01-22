@@ -1,21 +1,21 @@
 ---
-title: "GraalVM Native 이미지로 트래픽 폭주 대응하기"
+title: "GraalVM Native 이미지로 스케일 아웃 최적화하기"
 weight: 3
 description: "Quarkus + GraalVM Native 이미지를 EKS에 배포하고 K6로 부하 테스트한 경험. 빌드 최적화, 이미지 경량화, 보안 규격까지."
 tags: ["GraalVM", "Quarkus", "Kubernetes", "EKS", "Native Image", "K6", "성능테스트"]
 keywords: ["GraalVM Native", "Quarkus Native", "컨테이너 경량화", "K6 부하테스트", "EKS 배포"]
 ---
 
-JVM의 Cold Start는 트래픽 폭주 상황에서 치명적이다. 스케일 아웃이 되어도 새 Pod가 준비되기까지 시간이 걸리면 이미 늦는다. GraalVM Native Image는 이 문제를 해결한다.
+JVM의 Cold Start는 순간 트래픽 상황에서 치명적이다. 스케일 아웃이 되어도 새 Pod가 준비되기까지 시간이 걸리면 이미 늦는다. GraalVM Native Image는 이 문제를 해결한다.
 
-광고 푸시 후 동시 접속이 폭주하는 서비스에 GraalVM Native 이미지를 적용했다. 개발자가 애플리케이션을 만들고, 나는 CI/CD 파이프라인 구축과 배포, 부하 테스트를 담당했다. 빌드 시간과 이미지 크기를 줄이면서 보안 규격까지 맞춘 과정을 공유한다.
+광고 푸시 후 순간 트래픽이 몰리는 서비스에 GraalVM Native 이미지를 적용했다. 개발자가 애플리케이션을 만들고, 나는 CI/CD 파이프라인 구축과 배포, 부하 테스트를 담당했다. 빌드 시간과 이미지 크기를 줄이면서 보안 규격까지 맞춘 과정을 공유한다.
 
 ## 서비스 특성
 
-이 서비스는 광고성 메시지를 대량으로 발송한 직후 트래픽이 폭주한다. 사용자들이 링크를 클릭하면 반드시 이 서버를 거쳐야 하는 구조다.
+이 서비스는 광고성 메시지를 대량으로 발송한 직후 트래픽이 급증한다. 사용자들이 링크를 클릭하면 반드시 이 서버를 거쳐야 하는 구조다.
 
 **요구사항:**
-- 순간 트래픽 폭주 대응
+- 순간 트래픽 급증 대응
 - 빠른 스케일 아웃 (Cold Start 최소화)
 - 안정적인 응답 시간
 
@@ -46,7 +46,7 @@ flowchart LR
     end
 
     subgraph EKS[EKS Cluster]
-        Pod[crypto-api Pod]
+        Pod[native-app Pod]
     end
 
     Build --> Docker --> Push
@@ -182,9 +182,9 @@ GraalVM Native의 장점이 잘 드러나는 수치다. JVM이었다면 메모�
 
 GraalVM Native 이미지 도입의 핵심:
 
-1. **Cold Start 최소화**: 트래픽 폭주 시 빠른 스케일 아웃
+1. **Cold Start 최소화**: 순간 트래픽 시 빠른 스케일 아웃
 2. **이미지 경량화**: Distroless + Multi-stage Build
 3. **빌드 최적화**: Gradle 캐시, Self-hosted Runner
 4. **부하 테스트**: K6로 병목 지점 확인
 
-Native 이미지는 빌드 시간이 오래 걸리고 디버깅이 어렵다는 단점이 있다. 하지만 트래픽 폭주 대응이 중요한 서비스에서는 그 단점을 감수할 가치가 있다.
+Native 이미지는 빌드 시간이 오래 걸리고 디버깅이 어렵다는 단점이 있다. 하지만 순간 트래픽 대응이 중요한 서비스에서는 그 단점을 감수할 가치가 있다.
