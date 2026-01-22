@@ -1,6 +1,9 @@
 ---
 title: "Site-to-Site VPN 체크포인트"
 weight: 1
+description: "AWS Site-to-Site VPN 구성 시 알아야 할 핵심 사항. Initiator/Responder 역할, IKE/IPsec 파라미터, 터널 동작 모드 정리."
+tags: ["AWS", "VPN", "Site-to-Site", "IPsec", "네트워크"]
+keywords: ["AWS VPN", "Site-to-Site VPN", "IPsec VPN", "VPN 구성", "AWS 네트워크"]
 ---
 
 AWS Site-to-Site VPN을 개발망에 구성하면서 정리한 내용이다.

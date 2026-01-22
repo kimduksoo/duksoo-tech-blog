@@ -1,6 +1,9 @@
 ---
 title: "EKS에 LGTM 스택 구축하기"
 weight: 1
+description: "Loki, Grafana, Tempo, Mimir로 구성된 LGTM 스택을 EKS에 구축한 경험. Alloy 수집기, S3 백엔드, 아키텍처 설계."
+tags: ["LGTM", "Grafana", "Loki", "Mimir", "Tempo", "EKS", "Kubernetes", "모니터링", "Observability"]
+keywords: ["LGTM 스택", "Grafana Loki", "Grafana Mimir", "Grafana Tempo", "EKS 모니터링", "Kubernetes Observability"]
 ---
 
 Datadog 비용 부담으로 자체 관측성 플랫폼을 검토하게 되었다.

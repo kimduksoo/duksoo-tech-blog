@@ -1,6 +1,9 @@
 ---
 title: "Grafana 대시보드 구축"
 weight: 2
+description: "EKS 인프라, APM, Observability Pipeline 모니터링을 위한 Grafana 대시보드 설계 및 구축. PromQL 쿼리, GitOps 관리 방식."
+tags: ["Grafana", "Dashboard", "PromQL", "EKS", "APM", "모니터링", "Observability"]
+keywords: ["Grafana 대시보드", "PromQL", "EKS 모니터링", "APM 대시보드", "Kubernetes 대시보드"]
 ---
 
 LGTM 스택을 구축하고 나니, 다음 질문이 생겼다. "뭘 봐야 하지?"
