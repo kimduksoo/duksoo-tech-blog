@@ -97,15 +97,26 @@ AWS CloudTrail Event History는 **90일**만 보관된다.
 
 ### 리전별 모니터링 부재
 
-CloudTrail 기본 설정은 **현재 리전만** 기록한다.
+Event History는 **모든 리전에서 자동 활성화**되지만, **각 리전의 로그는 해당 리전에서만** 볼 수 있다.
+
+Trail을 생성할 때는 기본값이 **현재 리전만** 기록이다.
 
 ```
-❌ 서울 리전만 Trail 설정
-   → 도쿄에서 EC2 생성해도 로그 안 남음
+❌ 서울 리전에서만 Trail 설정
+   → 서울 로그만 S3에 저장
+   → 도쿄에서 EC2 생성해도 S3에 안 남음
 
 ✓ 모든 리전 Trail 설정 필요
    → AWS 콘솔에서 "Apply trail to all regions" 활성화
+   → 모든 리전 로그가 하나의 S3에 저장
 ```
+
+**정리:**
+| 설정 | 범위 | 보관 기간 |
+|------|------|----------|
+| Event History | 각 리전별 자동 활성화 | 90일 (변경 불가) |
+| Trail (기본) | 현재 리전만 | S3 정책 따름 |
+| Trail (All regions) | 모든 리전 | S3 정책 따름 |
 
 ## 예방: IAM 키 없애기
 
@@ -121,7 +132,7 @@ CloudTrail 기본 설정은 **현재 리전만** 기록한다.
 
 ### SSO 도입
 
-**SSO(Single Sign-On)**를 도입하면 개인 IAM 키가 필요 없다.
+**SSO**(Single Sign-On)를 도입하면 개인 IAM 키가 필요 없다.
 
 ```mermaid
 flowchart LR
