@@ -88,6 +88,13 @@ AWS CloudTrail Event History는 **90일**만 보관된다.
 | Trail → S3 | 무제한 (S3 수명주기 정책 따름) |
 | CloudTrail Lake | 최대 7~10년 |
 
+**각 옵션 설명:**
+- **Event History**: 자동으로 켜져있음, 무료, 90일 이상 보관 불가
+- **Trail → S3**: 직접 설정 필요, S3 버킷에 로그 파일 저장, 가장 많이 사용하는 방법
+- **CloudTrail Lake**: SQL로 쿼리 가능한 데이터 레이크, 비용 발생
+
+90일 이상 보관하려면 **사고 터지기 전에 Trail을 미리 설정**해야 한다.
+
 ### 리전별 모니터링 부재
 
 CloudTrail 기본 설정은 **현재 리전만** 기록한다.
