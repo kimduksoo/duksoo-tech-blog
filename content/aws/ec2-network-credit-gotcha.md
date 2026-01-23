@@ -1,7 +1,6 @@
 ---
 title: "EC2 크레딧, 네트워크만 Unlimited가 없다"
 weight: 3
-draft: true
 description: "CPU 크레딧은 Unlimited 모드로 쓰로틀링을 피할 수 있지만, 네트워크 크레딧은 그런 옵션이 없다."
 tags: ["AWS", "EC2", "네트워크", "크레딧"]
 keywords: ["EC2 크레딧", "네트워크 크레딧", "버스트 성능", "T 인스턴스", "Unlimited"]
