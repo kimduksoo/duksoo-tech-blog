@@ -100,7 +100,61 @@ CloudTrail 기본 설정은 **현재 리전만** 기록한다.
    → AWS 콘솔에서 "Apply trail to all regions" 활성화
 ```
 
-## 대응 방법
+## 예방: IAM 키 없애기
+
+가장 좋은 방법은 **IAM 키 자체를 없애는 것**이다.
+
+### 개인 IAM 계정의 문제
+
+개발자마다 IAM 계정이 있으면:
+- Access Key가 GitHub에 실수로 커밋됨
+- 퇴사자 키 회수 누락
+- 누가 어떤 키를 가지고 있는지 파악 어려움
+- 키 유출 시 추적 어려움
+
+### SSO 도입
+
+**SSO(Single Sign-On)**를 도입하면 개인 IAM 키가 필요 없다.
+
+```mermaid
+flowchart LR
+    subgraph Before["Before: 개인 IAM"]
+        Dev1[개발자 A] --> Key1[Access Key]
+        Dev2[개발자 B] --> Key2[Access Key]
+        Dev3[개발자 C] --> Key3[Access Key]
+    end
+
+    subgraph After["After: SSO"]
+        Dev4[개발자] --> SSO[SSO 로그인]
+        SSO --> Temp[임시 자격 증명]
+    end
+
+    style Key1 fill:#dc2626,color:#fff
+    style Key2 fill:#dc2626,color:#fff
+    style Key3 fill:#dc2626,color:#fff
+    style Temp fill:#16a34a,color:#fff
+```
+
+| 방식 | 키 유형 | 유출 위험 |
+|------|--------|----------|
+| 개인 IAM | 장기 Access Key | 높음 |
+| **SSO** | 임시 토큰 (만료됨) | 낮음 |
+
+**AWS IAM Identity Center**(구 AWS SSO)를 사용하면:
+- 개인 Access Key 불필요
+- 임시 자격 증명만 사용 (몇 시간 후 만료)
+- 퇴사 시 SSO 계정 비활성화로 끝
+- 모든 접근 기록이 중앙에서 관리됨
+
+### 키가 필요한 경우
+
+CI/CD 등 어쩔 수 없이 키가 필요하면:
+- **IAM Role** 사용 (EC2, Lambda 등에 Role 부여)
+- 키 사용 시 **90일마다 교체**
+- **최소 권한 원칙** 적용
+- GitHub Actions는 **OIDC**로 키 없이 연동 가능
+
+## 탐지 및 대응
 
 ### 1. 미사용 리전 비활성화
 
@@ -161,14 +215,20 @@ CloudWatch 알람으로 이상 징후 감지:
 
 ## 체크리스트
 
+**예방:**
+| 항목 | 확인 |
+|------|------|
+| SSO 도입 (개인 IAM 키 제거) | ☐ |
+| 장기 Access Key 사용 금지 | ☐ |
+| MFA 필수 설정 | ☐ |
+| 미사용 리전 SCP로 차단 | ☐ |
+
+**탐지:**
 | 항목 | 확인 |
 |------|------|
 | CloudTrail 모든 리전 활성화 | ☐ |
 | CloudTrail 로그 S3 장기 보관 | ☐ |
 | GuardDuty 모든 리전 활성화 | ☐ |
-| 미사용 리전 SCP로 차단 | ☐ |
-| IAM 키 대신 IAM Role 사용 | ☐ |
-| MFA 필수 설정 | ☐ |
 | 이상 API 호출 알람 설정 | ☐ |
 
 ## 정리
@@ -179,10 +239,13 @@ AWS IAM 키가 탈취되면:
 2. **CloudTrail 90일 한계**로 늦게 발견하면 추적 불가
 3. **10분 내**에 크립토마이너 가동 가능
 
-**핵심 대응:**
+**예방이 최선:**
+- **SSO 도입**으로 개인 IAM 키 자체를 없애기
+- 장기 Access Key 대신 **임시 자격 증명** 사용
+
+**탐지 체계:**
 - CloudTrail **모든 리전** 설정 + S3 장기 보관
 - GuardDuty **모든 리전** 활성화
 - 미사용 리전 **SCP로 차단**
-- IAM 키 대신 **IAM Role + MFA** 사용
 
-90일 지나면 끝이다. 미리 설정해두자.
+키가 없으면 탈취당할 키도 없다.
