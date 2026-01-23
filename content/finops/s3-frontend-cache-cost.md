@@ -1,7 +1,6 @@
 ---
 title: "S3 정적 파일, 캐시 미설정으로 CloudFront 비용 낭비한 경험"
 weight: 1
-draft: true
 description: "S3에 올린 동영상/이미지에 Cache-Control 헤더가 없어서 CloudFront 캐시가 안 되던 문제와 해결 방법."
 tags: ["AWS", "S3", "CloudFront", "캐시", "FinOps"]
 keywords: ["S3 캐시", "CloudFront 캐시", "Cache-Control", "비용 최적화"]
