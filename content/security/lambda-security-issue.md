@@ -38,7 +38,7 @@ flowchart LR
 - 도쿄(ap-northeast-1), 오레곤(us-west-1) 등은 안 봄
 - **모니터링 사각지대**
 
-실제 사례에서 공격자는 `ap-northeast-1`(도쿄)에 50개 이상의 EC2 인스턴스를 생성해서 한 달간 크립토마이닝을 돌렸다. 피해자는 청구서를 보고서야 알았다.
+실제 사례에서 공격자는 `ap-northeast-1`(도쿄)에 50개 이상의 EC2 인스턴스를 생성해서 한 달간 크립토마이닝을 돌렸다. 피해자는 청구서를 보고서야 알았다. ([The Danger of Unused AWS Regions - CloudSploit](https://medium.com/cloudsploit/the-danger-of-unused-aws-regions-af0bf1b878fc))
 
 ### 3단계: 지속성 확보
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ### 공격 속도
 
-2025년 11월에 탐지된 대규모 캠페인에서:
+2025년 11월에 탐지된 대규모 캠페인에서: ([AWS Security Blog](https://aws.amazon.com/blogs/security/cryptomining-campaign-targeting-amazon-ec2-and-amazon-ecs/), [The Hacker News](https://thehackernews.com/2025/12/compromised-iam-credentials-power-large.html))
 - 최초 접근 후 **10분 내** 크립토마이너 가동
 - 한 번에 **999개 EC2 인스턴스** 생성
 - **50개 이상의 ECS 클러스터** 생성
