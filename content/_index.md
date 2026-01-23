@@ -4,10 +4,8 @@ geekdocNav: false
 ---
 
 Cloud Engineer, 8년차.
-
-**NAVER Cloud**에서 Private Cloud를, **Kakao**에서 OpenStack 플랫폼을 경험했습니다.
-
-현재는 자바 기반 서비스를 위한 AWS EKS 인프라를 운영하고 있습니다.
+**NAVER Cloud**에서 System Engineer로 Private Cloud를, **Kakao**에서 플랫폼 개발자로 OpenStack 플랫폼을 경험했습니다.
+현재는 **아정당**(스타트업)에서 AWS 기반 인프라를 운영하고 있습니다.
 
 ---
 
