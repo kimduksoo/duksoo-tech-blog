@@ -3,36 +3,13 @@ title: "duksoo.dev"
 geekdocNav: false
 ---
 
-{{< hint type=note >}}
-**10년차 Cloud/DevOps Engineer** — NAVER Cloud, Kakao를 거쳐 현재 스타트업에서 인프라 전반을 담당하고 있습니다.
-{{< /hint >}}
-
 ## About
 
-```
-AWS EKS 멀티클러스터 운영 | GitOps (ArgoCD) | Observability (Grafana LGTM, Datadog)
-비용 최적화 | Terraform IaC | OpenStack 플랫폼 개발 경험
-```
+**Cloud Engineer 8년차**
 
-{{< columns >}}
+NAVER Cloud → Kakao → 현재 스타트업
 
-**NAVER Cloud**
-Private Cloud 운영
-Object Storage
-
-<--->
-
-**Kakao**
-OpenStack 플랫폼 개발
-프로비저닝 자동화
-
-<--->
-
-**Startup**
-EKS 운영, FinOps
-LGTM 전환 프로젝트
-
-{{< /columns >}}
+자바 베이스 서비스를 위한 AWS EKS 운영, GitOps, Observability를 담당하고 있습니다.
 
 ---
 
