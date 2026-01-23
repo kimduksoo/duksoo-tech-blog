@@ -89,8 +89,10 @@ aws ec2 describe-vpn-connections \
 
 ## 운영망 체크리스트
 
-- [ ] 두 터널 모두 설정 완료
-- [ ] 터널 상태 모니터링 구성 (CloudWatch)
-- [ ] DPD/Keepalive 설정 확인
-- [ ] Phase1/Phase2 Lifetime 양쪽 일치
-- [ ] 장애 시 온프레미스 재연결 절차 문서화
+| 항목 | 확인 |
+|------|------|
+| 두 터널 모두 설정 완료 | ☐ |
+| 터널 상태 모니터링 구성 (CloudWatch) | ☐ |
+| DPD/Keepalive 설정 확인 | ☐ |
+| Phase1/Phase2 Lifetime 양쪽 일치 | ☐ |
+| 장애 시 온프레미스 재연결 절차 문서화 | ☐ |
