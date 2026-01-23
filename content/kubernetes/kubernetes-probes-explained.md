@@ -36,7 +36,7 @@ flowchart LR
 
     style Startup fill:#74c0fc,color:#000
     style Readiness fill:#69db7c,color:#000
-    style Liveness fill:#ff8787,color:#000
+    style Liveness fill:#ef4444,color:#000
 ```
 
 ## 쉽게 외우기
@@ -198,8 +198,8 @@ flowchart LR
     D --> E[다른 Pod에 부하 전가]
     E --> B
 
-    style C fill:#ff6b6b,color:#fff
-    style D fill:#ff6b6b,color:#fff
+    style C fill:#dc2626,color:#fff
+    style D fill:#dc2626,color:#fff
 ```
 
 ### LivenessProbe 권장 설정

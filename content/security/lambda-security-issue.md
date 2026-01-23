@@ -27,9 +27,9 @@ flowchart LR
     C --> D[Lambda/EC2 생성]
     D --> E[크립토마이닝<br/>또는 권한 탈취]
 
-    style A fill:#ff6b6b,color:#fff
-    style D fill:#ff6b6b,color:#fff
-    style E fill:#ff6b6b,color:#fff
+    style A fill:#dc2626,color:#fff
+    style D fill:#dc2626,color:#fff
+    style E fill:#dc2626,color:#fff
 ```
 
 **왜 미사용 리전인가?**
