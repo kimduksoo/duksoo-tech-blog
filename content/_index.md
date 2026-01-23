@@ -9,7 +9,6 @@ Cloud Engineer의 기술 블로그
 
 - **Role**: Cloud Engineer
 - **Skills**: AWS, Kubernetes, Terraform, Datadog
-- **GitHub**: [duksoo-son](https://github.com/duksoo-son)
 
 ## Categories
 
