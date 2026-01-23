@@ -44,7 +44,16 @@ flowchart LR
     style S3 fill:#3b82f6,color:#fff
 ```
 
-**핵심:**
+### Cache-Control 헤더란?
+
+HTTP 응답 헤더로, 브라우저와 CDN에게 "이 파일을 얼마나 오래 캐시해도 되는지" 알려준다.
+
+```
+Cache-Control: max-age=86400
+→ "이 파일은 86400초(24시간) 동안 캐시해도 됨"
+```
+
+**동작:**
 - S3에서 `Cache-Control: max-age=86400` 헤더가 오면 → CloudFront가 24시간 캐시
 - 헤더 없으면 → CloudFront 정책에 따라 다름 (기본값은 24시간이지만, 조건에 따라 캐시 안 될 수 있음)
 
