@@ -11,25 +11,6 @@ keywords: ["Confluent Kafka", "CDC", "Flink", "Change Data Capture", "CQRS", "�
 
 Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 
-## 아키텍처
-
-```mermaid
-flowchart LR
-    MySQL[(MySQL)] -->|binlog| Debezium
-
-    subgraph Confluent["Confluent Cloud"]
-        direction LR
-        Debezium[Debezium] --> Kafka[Kafka Topics] --> Flink[Flink SQL]
-    end
-
-    Flink -->|joined results| MongoDB[(MongoDB)]
-```
-
-- **Debezium**: MySQL binlog를 캡처해서 Kafka로 전송
-- **Confluent Kafka**: CDC 이벤트 스트리밍
-- **Flink**: 8개 테이블 증분 조인
-- **MongoDB**: 조인된 결과 저장 (읽기 전용)
-
 ## PoC 결과
 
 ### CDC 단일 테이블
@@ -53,6 +34,23 @@ Confluent 엔지니어 평가: "서비스 운영에 충분히 양호한 성능"
 - 커넥터 내부 처리와 네트워크 지연이 합산된 값
 
 ### Flink 8개 테이블 조인
+
+```mermaid
+flowchart LR
+    MySQL[(MySQL)] -->|binlog| Debezium
+
+    subgraph Confluent["Confluent Cloud"]
+        direction LR
+        Debezium[Debezium] --> Kafka[Kafka Topics] --> Flink[Flink SQL]
+    end
+
+    Flink -->|joined results| MongoDB[(MongoDB)]
+```
+
+- **Debezium**: MySQL binlog를 캡처해서 Kafka로 전송
+- **Confluent Kafka**: CDC 이벤트 스트리밍
+- **Flink**: 8개 테이블 증분 조인
+- **MongoDB**: 조인된 결과 저장 (읽기 전용)
 
 8개 테이블을 CDC 이벤트 기반으로 증분 조인했다. (메인 테이블 1개 + 참조 테이블 7개)
 
