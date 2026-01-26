@@ -36,17 +36,20 @@ aws eks update-cluster-version --name eks-blue --kubernetes-version 1.33
 Self-managed addon이라 직접 이미지를 업데이트해야 한다.
 
 ```bash
+# ECR 베이스 URL
+ECR=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com
+
 # VPC CNI
 kubectl set image daemonset/aws-node -n kube-system \
-  aws-node=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/amazon-k8s-cni:v1.21.1
+  aws-node=${ECR}/amazon-k8s-cni:v1.21.1
 
 # CoreDNS
 kubectl set image deployment/coredns -n kube-system \
-  coredns=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/eks/coredns:v1.12.4-eksbuild.1
+  coredns=${ECR}/eks/coredns:v1.12.4-eksbuild.1
 
 # kube-proxy
 kubectl set image daemonset/kube-proxy -n kube-system \
-  kube-proxy=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/eks/kube-proxy:v1.33.0-minimal-eksbuild.2
+  kube-proxy=${ECR}/eks/kube-proxy:v1.33.0-minimal-eksbuild.2
 ```
 
 VPC CNI 업데이트 후 테스트 Pod를 띄워봤다.
@@ -156,9 +159,11 @@ kind, no corresponding implementation found, expected one of
 
 ```bash
 # CRD 수동 업데이트
-kubectl apply -f https://raw.githubusercontent.com/aws/karpenter/v1.5.0/pkg/apis/crds/karpenter.sh_nodepools.yaml
-kubectl apply -f https://raw.githubusercontent.com/aws/karpenter/v1.5.0/pkg/apis/crds/karpenter.k8s.aws_ec2nodeclasses.yaml
-kubectl apply -f https://raw.githubusercontent.com/aws/karpenter/v1.5.0/pkg/apis/crds/karpenter.sh_nodeclaims.yaml
+KARPENTER_CRD="https://raw.githubusercontent.com/aws/karpenter/v1.5.0/pkg/apis/crds"
+
+kubectl apply -f ${KARPENTER_CRD}/karpenter.sh_nodepools.yaml
+kubectl apply -f ${KARPENTER_CRD}/karpenter.k8s.aws_ec2nodeclasses.yaml
+kubectl apply -f ${KARPENTER_CRD}/karpenter.sh_nodeclaims.yaml
 
 # Karpenter 재시작
 kubectl rollout restart deployment/karpenter -n karpenter
@@ -287,20 +292,23 @@ watch "aws eks describe-cluster --name ${CLUSTER} --query 'cluster.status'"
 ### Core Addon 업그레이드 (Self-managed)
 
 ```bash
+# ECR 베이스 URL
+ECR=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com
+
 # 1. VPC CNI 충돌 env 제거 (필수!)
 kubectl set env daemonset/aws-node -n kube-system NETWORK_POLICY_ENFORCING_MODE-
 
 # 2. VPC CNI
 kubectl set image daemonset/aws-node -n kube-system \
-  aws-node=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/amazon-k8s-cni:v1.21.1
+  aws-node=${ECR}/amazon-k8s-cni:v1.21.1
 
 # 3. CoreDNS
 kubectl set image deployment/coredns -n kube-system \
-  coredns=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/eks/coredns:v1.12.4-eksbuild.1
+  coredns=${ECR}/eks/coredns:v1.12.4-eksbuild.1
 
 # 4. kube-proxy
 kubectl set image daemonset/kube-proxy -n kube-system \
-  kube-proxy=602401143452.dkr.ecr.ap-northeast-2.amazonaws.com/eks/kube-proxy:v1.33.0-minimal-eksbuild.2
+  kube-proxy=${ECR}/eks/kube-proxy:v1.33.0-minimal-eksbuild.2
 
 # 5. Pod IP 할당 테스트
 kubectl run test-pod --image=busybox --restart=Never --command -- sleep 30
