@@ -15,6 +15,18 @@ Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 
 ### CDC 단일 테이블
 
+```mermaid
+flowchart LR
+    MySQL[(MySQL)] -->|binlog| Debezium
+
+    subgraph Confluent["Confluent Cloud"]
+        direction LR
+        Debezium[Debezium] --> Kafka[Kafka Topics] --> Sink[MongoDB Sink]
+    end
+
+    Sink --> MongoDB[(MongoDB)]
+```
+
 ![E2E Latency Measurement Flow](/images/backend/cdc-latency-flow.png)
 
 | 구간 | 지연 시간 |
