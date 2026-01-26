@@ -1,14 +1,14 @@
 ---
 title: "Liveness Probe가 서비스를 죽인 날"
 weight: 7
-description: "무거운 Liveness Probe가 연쇄 재시작을 유발한 장애 분석. 메트릭 기반 타임라인 복원과 교훈."
-tags: ["Kubernetes", "Probe", "LivenessProbe", "장애분석", "EKS"]
-keywords: ["Liveness Probe 장애", "Pod 재시작 폭풍", "restart loop", "헬스체크 장애"]
+description: "Karpenter 노드 교체 + 무거운 Liveness Probe가 만나 연쇄 재시작을 유발한 장애 분석."
+tags: ["Kubernetes", "Probe", "LivenessProbe", "Karpenter", "장애분석", "EKS"]
+keywords: ["Liveness Probe 장애", "Pod 재시작 폭풍", "restart loop", "Karpenter 노드 교체", "헬스체크 장애"]
 ---
 
 Liveness Probe는 죽은 Pod를 살리기 위한 것이다. 그런데 잘못 설정하면 **멀쩡한 Pod를 죽이는 도구**가 된다.
 
-이론적으로는 알고 있었다. [Kubernetes Probe 3종류](/kubernetes/kubernetes-probes-explained/)에서도 "LivenessProbe는 단순하게"라고 정리했다. 그런데 실제로 겪고 나니 체감이 다르다. Datadog 메트릭으로 타임라인을 복원하고 원인을 분석한 과정을 공유한다.
+이론적으로는 알고 있었다. [Kubernetes Probe 3종류](/kubernetes/kubernetes-probes-explained/)에서도 "LivenessProbe는 단순하게"라고 정리했다. 그런데 실제로 겪고 나니 체감이 다르다. Karpenter 노드 교체와 무거운 Liveness Probe가 만나면서 연쇄 재시작이 발생했다. Datadog 메트릭으로 타임라인을 복원하고 원인을 분석한 과정을 공유한다.
 
 ## 증상
 
@@ -32,9 +32,34 @@ api-server-66c7f4d598-vqd9k   1/1     Running   2 (2d ago)    2d
 
 ## 원인 추적
 
-### 변경점 확인
+### 트리거: Karpenter 노드 교체
 
-전날 배포에서 `/health` 엔드포인트가 변경되었다.
+먼저 노드 변화를 확인했다. `kubernetes.pods.running` 메트릭을 노드별로 조회하니 흥미로운 패턴이 보였다.
+
+```
+노드별 Pod 존재 시간 (KST)
+──────────────────────────────────────────────────────────
+
+[장애 전 노드 - 동시에 드레인됨]
+Node A (ip-10-2-26-193)    04:10 ━━━━━━━━━━━━━━━━ 10:00 ┐
+Node B (ip-10-2-46-83)     04:15 ━━━━━━━━━━━━━━━ 09:45  ├─ 동시 드레인!
+                                                        │
+[장애 중 임시 노드]                                     │
+ip-10-2-0-80               09:40 ━━━ 10:00              │
+ip-10-2-12-250             10:05 ━ 10:20                │
+                                                        │
+[새 노드 - 안정화]                                      ↓
+Node C (ip-10-2-16-180)    09:55 ━━━━━━━━━━━━━━━━━━━━━━ 13:35+
+Node D (ip-10-2-39-45)     09:55 ━━━━━━━━━━━━━━━━━━━━━━ 13:35+
+```
+
+**Karpenter가 AMI 버전 drift를 감지하고 2개 노드를 동시에 교체**한 것이었다. EKS에서 새 AMI 버전(v1.32.9)이 릴리스되면서 기존 노드(v1.32.3)가 drift 상태가 됐고, Karpenter가 자동으로 노드를 교체했다.
+
+문제는 2개 노드가 **동시에** 드레인되면서 2개 Pod가 **동시에** 새 노드로 이동했다는 것이다.
+
+### 복합 원인: 무거운 Liveness Probe
+
+노드 교체 자체는 정상적인 운영이다. 문제는 전날 배포에서 `/health` 엔드포인트가 변경되어 있었다는 것이다.
 
 ```java
 // Before - 단순 응답
@@ -55,6 +80,10 @@ public String health() {
 개발팀에서 "헬스체크가 너무 단순해서 실제 연결 상태를 반영 못 한다"고 변경한 것이었다.
 
 의도는 좋았다. 문제는 이 `/health`가 **Liveness Probe에 연결되어 있었다**는 것이다.
+
+**두 가지가 만났다:**
+1. Karpenter 노드 교체 → 2개 Pod 동시 재스케줄링
+2. 무거운 Liveness Probe → JVM Warmup 중 응답 불가 → 재시작 루프
 
 ### 메트릭 분석
 
@@ -83,76 +112,78 @@ Pod C (gk6kq):
 
 ## 타임라인 복원
 
-메트릭과 APM 트레이스를 조합해서 타임라인을 복원했다.
+메트릭과 APM 트레이스를 조합해서 전체 타임라인을 복원했다.
 
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant PodA as Pod A
-    participant PodB as Pod B
+    participant Karpenter
+    participant OldNodes as 구 노드 (A, B)
+    participant NewNodes as 새 노드 (C, D)
     participant K8s as Kubernetes
 
-    Note over PodA,PodB: 09:46 - 장애 시작
+    Note over Karpenter: AMI drift 감지 (v1.32.3 → v1.32.9)
 
-    Client->>PodA: 대용량 조회 API (5~9초 소요)
-    K8s->>PodA: Liveness Probe (/health)
-    Note over PodA: DB, Redis 체크 중<br/>CPU 과부하로 응답 지연
-    K8s--xPodA: Timeout!
-    K8s->>PodA: Container Kill → Restart
+    Karpenter->>OldNodes: Node A, B 동시 드레인 시작
 
-    Note over PodA: 09:48 - JVM Warmup 중
+    Note over OldNodes: 09:45 - 2개 Pod evict
 
-    K8s->>PodA: Liveness Probe (/health)
-    Note over PodA: Warmup 중 CPU 급증<br/>응답 불가
-    K8s--xPodA: Timeout!
-    K8s->>PodA: Container Kill → Restart
+    OldNodes-->>NewNodes: Pod A → 새 노드로 이동
+    OldNodes-->>NewNodes: Pod B → 새 노드로 이동
 
-    Note over PodA: 반복 실패 → CrashLoopBackOff → Pod 삭제
+    Note over NewNodes: 09:46 - 둘 다 JVM Warmup 시작<br/>CPU 급증 (limit 1600m, 사용 1400m+)
 
-    Note over PodB: 09:53 - 트래픽 집중
+    K8s->>NewNodes: Liveness Probe (/health)
+    Note over NewNodes: DB, Redis 체크 중<br/>CPU 과부하로 응답 지연
+    K8s--xNewNodes: Timeout!
+    K8s->>NewNodes: Pod A 재시작
 
-    Client->>PodB: 모든 트래픽이 Pod B로
-    K8s->>PodB: Liveness Probe (/health)
-    Note over PodB: 과부하로 응답 지연
-    K8s--xPodB: Timeout!
-    K8s->>PodB: Container Kill → Restart
+    Note over NewNodes: 09:48 - Pod A 다시 Warmup
 
-    Note over PodA,PodB: 09:55 - Pod C 생성 (Pod A 대체)
+    K8s->>NewNodes: Liveness Probe (/health)
+    K8s--xNewNodes: Timeout!
+    K8s->>NewNodes: Pod A 재시작 (2회차)
 
-    Note over PodA,PodB: 09:57 - Pod B, C 모두 재시작 루프
+    Note over NewNodes: Pod A 반복 실패 → 삭제됨
 
-    Note over PodA,PodB: 10:00 - JVM Warmup 완료 후 안정화
+    Note over NewNodes: 09:53 - Pod B에 트래픽 집중
+
+    K8s->>NewNodes: Liveness Probe (/health)
+    Note over NewNodes: 과부하로 응답 지연
+    K8s--xNewNodes: Timeout!
+    K8s->>NewNodes: Pod B 재시작
+
+    Note over NewNodes: 09:55 - Pod C 생성 (Pod A 대체)
+
+    Note over NewNodes: 09:57 - Pod B, C 모두 재시작 루프 (최대 4회)
+
+    Note over NewNodes: 10:00 - JVM Warmup 완료 후 안정화
 ```
 
-### 연쇄 반응 분석
+### 왜 2개 Pod가 동시에 문제가 됐나
 
-왜 한 Pod의 재시작이 다른 Pod까지 영향을 줬을까?
+처음에는 "한 Pod가 죽어서 다른 Pod에 트래픽이 몰렸다"고 생각했다. 하지만 메트릭을 자세히 보니 **둘 다 동시에 문제**였다.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  1. Pod A에서 대용량 API 처리 중 (5~9초)                 │
+│  [트리거] Karpenter가 2개 노드 동시 드레인               │
 │                     ↓                                    │
-│  2. 동시에 Liveness Probe 요청                          │
-│     → DB, Redis 체크 → 응답 지연                        │
+│  [상황] 2개 Pod가 동시에 새 노드로 이동                  │
 │                     ↓                                    │
-│  3. Liveness timeout → Pod A 강제 종료                  │
+│  [문제] 둘 다 JVM Warmup → 둘 다 CPU 급증               │
 │                     ↓                                    │
-│  4. Pod B에 트래픽 집중 → 과부하                        │
+│  [악화] 둘 다 Liveness 실패 → 둘 다 재시작              │
 │                     ↓                                    │
-│  5. Pod B도 Liveness 실패 → 재시작                      │
+│  [연쇄] 한쪽 죽으면 다른 쪽 부하 증가 → 같이 죽음       │
 │                     ↓                                    │
-│  6. 새 Pod 생성 → JVM Warmup → CPU 급증 → 또 실패       │
-│                     ↓                                    │
-│  7. 재시작 루프 (최대 4회)                               │
+│  [루프] 재시작 → Warmup → 실패 → 재시작 (최대 4회)      │
 └──────────────────────────────────────────────────────────┘
 ```
 
-**핵심은 Liveness Probe가 "무거웠다"는 것이다.**
-
-- 평소에는 문제없었다
-- 부하 상황에서 DB/Redis 체크가 지연됐다
-- JVM Warmup 중에는 더 심했다
-- 재시작할수록 상황이 악화됐다
+**핵심:**
+- 평소에는 무거운 Liveness Probe도 문제없었다
+- 노드 교체로 **동시에 Warmup 상태**가 되면서 문제 발생
+- Warmup 중 CPU 사용량이 limit(1600m) 근처까지 치솟음
+- 이 상태에서 DB, Redis 체크하는 Liveness Probe가 timeout
 
 ## Pod별 최종 상태
 
@@ -166,7 +197,7 @@ Pod A는 CrashLoopBackOff에 빠져서 결국 삭제됐고, 새 Pod C가 생성�
 
 ## 교훈
 
-### Probe별 권장 설정
+### 1. Liveness Probe는 단순하게
 
 | Probe | 체크 내용 | 이유 |
 |-------|----------|------|
@@ -196,7 +227,7 @@ readinessProbe:
   failureThreshold: 3
 ```
 
-### 엔드포인트 분리
+### 2. 엔드포인트 분리
 
 ```java
 // Liveness - 단순하게
@@ -214,10 +245,23 @@ public String startup() {
 }
 ```
 
+### 3. Karpenter 노드 교체 시 주의
+
+Karpenter는 노드를 자동으로 교체한다. 평소에는 문제없지만, **여러 노드가 동시에 교체**되면 Pod들이 동시에 재스케줄링된다.
+
+- JVM 앱은 Warmup 시간이 필요하다
+- 동시 재스케줄링 시 모든 Pod가 Warmup 상태가 된다
+- 이때 Liveness Probe가 무거우면 재시작 루프 발생
+
+**대응:**
+- Karpenter의 `disruption` 설정으로 동시 교체 Pod 수 제한
+- PodDisruptionBudget(PDB)으로 최소 가용 Pod 수 보장
+- Liveness Probe는 항상 가볍게 유지
+
 ### 기억할 것
 
 1. **Liveness Probe는 "앱이 살아있나?"만 확인한다** - 의존성 체크는 Startup에서
-2. **부하 상황을 시뮬레이션해야 한다** - 평소에 문제없어도 부하 시 터진다
+2. **노드 교체 상황을 시뮬레이션해야 한다** - 평소에 문제없어도 동시 재스케줄링 시 터진다
 3. **JVM Warmup 시간을 고려한다** - 재시작 후 CPU가 급증한다
 
 ## 조치 사항
@@ -226,5 +270,6 @@ public String startup() {
 2. `/health/startup` 엔드포인트 추가 (DB, Redis 체크)
 3. StartupProbe 설정 추가
 4. CPU limit 검토 (현재 1600m, 실사용 1400m 후반)
+5. Karpenter disruption 설정 검토
 
-이론으로 알던 것과 실제로 겪는 것은 다르다. "Liveness Probe는 단순하게"라는 원칙이 왜 중요한지 체감한 장애였다.
+이론으로 알던 것과 실제로 겪는 것은 다르다. "Liveness Probe는 단순하게"라는 원칙이 왜 중요한지, 그리고 **여러 요소가 동시에 작용**할 때 어떤 일이 벌어지는지 체감한 장애였다.
