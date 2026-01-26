@@ -34,14 +34,14 @@ flowchart LR
 
 ### CDC 단일 테이블
 
+![E2E Latency Measurement Flow](/images/backend/cdc-latency-flow.png)
+
 | 구간 | 지연 시간 |
 |------|----------|
 | Debezium capture | 5 ms |
 | Debezium → Kafka Broker | 170 ms |
 | Kafka → MongoDB Sink | 212 ms |
 | **End-to-End** | **383 ms** |
-
-![E2E Latency Measurement Flow](/images/backend/cdc-latency-flow.png)
 
 단일 테이블 기준으로 MySQL commit → MongoDB write까지 약 **383ms**.
 
