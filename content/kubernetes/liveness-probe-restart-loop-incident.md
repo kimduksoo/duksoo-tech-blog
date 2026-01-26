@@ -182,12 +182,12 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    trigger["🔄 Karpenter가 2개 노드 동시 드레인"]
-    situation["📦 2개 Pod가 동시에 새 노드로 이동"]
-    problem["🔥 둘 다 JVM Warmup → 둘 다 CPU 급증"]
-    worse["❌ 둘 다 Liveness 실패 → 둘 다 재시작"]
-    chain["⚡ 한쪽 죽으면 다른 쪽 부하 증가 → 같이 죽음"]
-    loop["🔁 재시작 → Warmup → 실패 → 재시작 (최대 4회)"]
+    trigger["🔄 Karpenter가<br>2개 노드 동시 드레인"]
+    situation["📦 2개 Pod가<br>새 노드로 이동"]
+    problem["🔥 둘 다 JVM Warmup<br>→ 둘 다 CPU 급증"]
+    worse["❌ 둘 다 Liveness 실패<br>→ 둘 다 재시작"]
+    chain["⚡ 한쪽 죽으면<br>다른 쪽 부하 증가"]
+    loop["🔁 재시작 → Warmup<br>→ 실패 반복"]
 
     trigger --> situation
     situation --> problem
