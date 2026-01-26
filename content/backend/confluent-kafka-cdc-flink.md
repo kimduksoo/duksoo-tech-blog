@@ -15,25 +15,14 @@ Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 
 ```mermaid
 flowchart LR
-    subgraph Source
-        MySQL[(MySQL)]
+    MySQL[(MySQL)] -->|binlog| Debezium
+
+    subgraph Confluent["Confluent Cloud"]
+        direction LR
+        Debezium[Debezium] --> Kafka[Kafka Topics] --> Flink[Flink SQL]
     end
 
-    Source -->|binlog changes| CDC
-
-    subgraph CDC["Confluent Cloud"]
-        Debezium[Debezium Source Connector]
-        Kafka[Kafka Topics]
-        Flink[Flink SQL]
-        Debezium --> Kafka
-        Kafka --> Flink
-    end
-
-    CDC -->|joined results| Sink
-
-    subgraph Sink["MongoDB Atlas"]
-        MongoDB[(MongoDB)]
-    end
+    Flink -->|joined results| MongoDB[(MongoDB)]
 ```
 
 - **Debezium**: MySQL binlog를 캡처해서 Kafka로 전송
@@ -103,29 +92,15 @@ Confluent 엔지니어도 "느린 수준은 아니지만 **반응성이 중요�
 ### 1. 컴포넌트 간 지연
 
 ```mermaid
-flowchart TB
-    subgraph AWS["AWS ap-northeast-2"]
-        MySQL[(MySQL)]
-        App[Application]
-    end
-
-    MySQL -->|5ms| Debezium
+flowchart LR
+    MySQL[(MySQL)] -->|5ms| Debezium
 
     subgraph Confluent["Confluent Cloud - same region"]
-        Debezium[Debezium Connector]
-        Kafka[Kafka Broker]
-        Flink[Flink SQL]
-        Debezium -->|serialize, batch| Kafka
-        Kafka -->|poll, fetch| Flink
+        direction LR
+        Debezium[Debezium] -->|serialize, batch| Kafka[Kafka Broker] -->|poll, fetch| Flink[Flink SQL]
     end
 
-    Flink -->|212ms| MongoDB
-
-    subgraph Atlas["MongoDB Atlas"]
-        MongoDB[(MongoDB)]
-    end
-
-    App -->|query| MongoDB
+    Flink -->|212ms| MongoDB[(MongoDB)]
 ```
 
 Confluent Cloud는 AWS 동일 리전(ap-northeast-2)에 있어서 퍼블릭 망은 아니다. 그럼에도 지연이 발생한 이유:
