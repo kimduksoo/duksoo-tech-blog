@@ -145,7 +145,44 @@ PoC 12일에 약 **$620** 나왔다. 프로덕션이면 월 $1,500+ 예상.
 
 같은 PoC에서 Lakehouse 구성도 검증했다.
 
-![Lakehouse CDC Flow](/images/backend/lakehouse-flow.png)
+```mermaid
+flowchart TB
+    subgraph Source
+        MySQL[(MySQL)]
+    end
+
+    Source -->|row changes| CDC
+
+    subgraph CDC["Confluent Cloud"]
+        Debezium[Debezium, S3 Sink]
+    end
+
+    CDC -->|append parquet| DataLake
+
+    subgraph DataLake["Data Lake - S3"]
+        Staging[S3 Parquet Staging]
+        Glue[Glue Catalog]
+        Staging --> Glue
+    end
+
+    DataLake -->|recent changes| Athena
+    DataLake -->|source SELECT| Athena
+
+    subgraph Athena
+        Merge[증분 동기화:<br/>MERGE 주기 실행]
+        Init[초기 적재:<br/>INSERT INTO Iceberg]
+    end
+
+    Athena --> Iceberg
+
+    subgraph Iceberg["Iceberg Table on S3"]
+        IcebergTable[Iceberg 테이블<br/>Partition: last_modified_ts]
+        IcebergGlue[Glue Catalog:<br/>Iceberg 메타데이터]
+        IcebergTable --> IcebergGlue
+    end
+
+    Iceberg -->|BI / Analytics| Output[분석 도구]
+```
 
 **구성:**
 - S3 Sink Connector: CDC 이벤트를 Parquet로 S3 적재
