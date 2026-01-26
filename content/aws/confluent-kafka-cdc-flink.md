@@ -7,7 +7,7 @@ tags: ["Kafka", "Confluent", "CDC", "Flink", "CQRS", "MongoDB"]
 keywords: ["Confluent Kafka", "CDC", "Flink", "Change Data Capture", "CQRS", "실시간 데이터"]
 ---
 
-무거운 조인 쿼리가 문제였다. 8개 테이블을 조인하는 쿼리가 프론트엔드 응답 시간을 늘리고 있었다. CQRS 패턴으로 읽기 전용 저장소를 분리하면 해결될 것 같았다.
+무거운 조인 쿼리에 문제가 있었다. 8개 테이블을 조인하는 쿼리가 프론트엔드 응답 시간을 늘리고 있었다. CQRS 패턴으로 읽기 전용 저장소를 분리하면 해결될 것 같았다.
 
 Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 
