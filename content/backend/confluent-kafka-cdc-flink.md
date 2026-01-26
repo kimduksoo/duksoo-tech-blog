@@ -41,9 +41,11 @@ flowchart LR
 | 구간 | 지연 시간 |
 |------|----------|
 | Debezium capture | 5 ms |
-| 네트워크 (AWS → Confluent) | 170 ms |
-| 네트워크 (Confluent → MongoDB) | 212 ms |
+| Debezium → Kafka Broker | 170 ms |
+| Kafka → MongoDB Sink | 212 ms |
 | **End-to-End** | **383 ms** |
+
+![E2E Latency Measurement Flow](/images/backend/cdc-latency-flow.png)
 
 단일 테이블 기준으로 MySQL commit → MongoDB write까지 약 **383ms**.
 
@@ -91,16 +93,16 @@ Confluent 엔지니어도 "느린 수준은 아니지만 **반응성이 중요�
 
 ## 문제점 상세
 
-### 1. 네트워크 지연
+### 1. 컴포넌트 간 지연
 
 ```mermaid
 flowchart LR
-    subgraph AWS["AWS VPC"]
+    subgraph AWS["AWS ap-northeast-2"]
         MySQL[(MySQL)]
         App[Application]
     end
 
-    subgraph Confluent["Confluent Cloud"]
+    subgraph Confluent["Confluent Cloud<br/>(same region)"]
         Kafka[Kafka]
         Flink[Flink]
     end
@@ -109,23 +111,23 @@ flowchart LR
         MongoDB[(MongoDB)]
     end
 
-    MySQL -->|퍼블릭 망| Kafka
+    MySQL --> Kafka
     Kafka --> Flink
-    Flink -->|퍼블릭 망| MongoDB
-    App -->|퍼블릭 망| MongoDB
+    Flink --> MongoDB
+    App --> MongoDB
 
     style AWS fill:#f59e0b,color:#000
     style Confluent fill:#3b82f6,color:#fff
     style Atlas fill:#16a34a,color:#fff
 ```
 
-Confluent Cloud를 사용하다 보니 **퍼블릭 망**을 통해야 했다. 전체 383ms 중 네트워크 구간이 382ms였다:
+Confluent Cloud는 AWS 동일 리전(ap-northeast-2)에 있어서 퍼블릭 망은 아니다. 그럼에도 지연이 발생한 이유:
 
-- MySQL → Debezium: 5ms (로컬)
-- Debezium → Kafka: 170ms (퍼블릭)
-- Kafka → MongoDB: 212ms (퍼블릭)
+- **커넥터 내부 처리**: 직렬화, 배치, 프로듀스 호출
+- **브로커 대기**: 컨슈머 폴링, 페치
+- **Sink 처리**: MongoDB Write
 
-동일 리전 VPC 피어링이나 Private Link를 적용하면 **60ms 내외**까지 줄일 수 있다고 한다. 하지만 추가 비용과 설정 복잡도가 있다.
+VPC 피어링이나 Private Link를 적용하면 **60ms 내외**까지 줄일 수 있다고 한다.
 
 ### 2. 운영 복잡도
 
