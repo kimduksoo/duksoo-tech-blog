@@ -14,7 +14,7 @@ Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 ## 아키텍처
 
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph Source
         MySQL[(MySQL)]
     end
