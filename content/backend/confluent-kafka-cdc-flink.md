@@ -84,27 +84,20 @@ Confluent 엔지니어도 "느린 수준은 아니지만 **반응성이 중요�
 
 ## 문제점 상세
 
-### 1. 컴포넌트 간 지연
+### 1. 지연 시간 분석
 
-```mermaid
-flowchart LR
-    MySQL[(MySQL)] -->|5ms| Debezium
+| 구간 | 지연 | 비고 |
+|------|------|------|
+| CDC 파이프라인 | ~383ms | 네트워크, 커넥터 |
+| **Flink 조인 처리** | **~3.3초** | 8테이블 증분 조인 |
+| **합계** | **~3.7초** | |
 
-    subgraph Confluent["Confluent Cloud - same region"]
-        direction LR
-        Debezium[Debezium] -->|serialize, batch| Kafka[Kafka Broker] -->|poll, fetch| Flink[Flink SQL]
-    end
+**지연의 대부분은 Flink 조인 처리**에서 발생한다. CDC 파이프라인(383ms)은 전체의 10% 수준이다.
 
-    Flink -->|212ms| MongoDB[(MongoDB)]
-```
-
-Confluent Cloud는 AWS 동일 리전(ap-northeast-2)에 있어서 퍼블릭 망은 아니다. 그럼에도 지연이 발생한 이유:
-
-- **커넥터 내부 처리**: 직렬화, 배치, 프로듀스 호출
-- **브로커 대기**: 컨슈머 폴링, 페치
-- **Sink 처리**: MongoDB Write
-
-VPC 피어링이나 Private Link를 적용하면 **60ms 내외**까지 줄일 수 있다고 한다.
+Flink가 느린 이유:
+- 8개 테이블의 CDC 이벤트를 State에 저장하고 조인
+- 각 테이블 변경 시마다 전체 조인 결과 재계산
+- State 크기 증가에 따른 처리 시간 증가
 
 ### 2. 운영 복잡도
 
@@ -153,47 +146,6 @@ PoC 12일에 약 **$620** 나왔다. 프로덕션이면 월 $1,500+ 예상.
 같은 PoC에서 Lakehouse 구성도 검증했다.
 
 ![Lakehouse CDC Flow](/images/backend/lakehouse-flow.png)
-
-```mermaid
-flowchart TB
-    subgraph Source
-        MySQL[(MySQL)]
-    end
-
-    Source -->|row changes| CDC
-
-    subgraph CDC["Confluent Cloud"]
-        Debezium[Debezium Source]
-        S3Sink[S3 Sink Connector]
-        Debezium --> S3Sink
-    end
-
-    CDC -->|append parquet| DataLake
-
-    subgraph DataLake["Data Lake - S3"]
-        Staging[S3 Parquet Staging]
-        Glue[Glue Catalog]
-        Staging --> Glue
-    end
-
-    DataLake -->|recent changes| Athena
-    DataLake -->|source SELECT| Athena
-
-    subgraph Athena
-        Merge[증분 동기화:<br/>MERGE 주기 실행]
-        Init[초기 적재:<br/>INSERT INTO Iceberg]
-    end
-
-    Athena --> Iceberg
-
-    subgraph Iceberg["Iceberg Table on S3"]
-        IcebergTable[glue_db.table_iceberg<br/>Partition: last_modified_ts]
-        IcebergGlue[Glue Catalog:<br/>Iceberg 메타데이터]
-        IcebergTable --> IcebergGlue
-    end
-
-    Iceberg -->|BI / Analytics| Output[분석 도구]
-```
 
 **구성:**
 - S3 Sink Connector: CDC 이벤트를 Parquet로 S3 적재
