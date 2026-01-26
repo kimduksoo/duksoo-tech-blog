@@ -13,20 +13,27 @@ Confluent Cloud + Flink로 CDC 파이프라인을 PoC 해봤다.
 
 ## 아키텍처
 
-```
-MySQL → Debezium → Confluent Kafka → Flink → MongoDB
-```
-
 ```mermaid
-flowchart LR
-    MySQL[(MySQL)] --> Debezium
-    Debezium --> Kafka[Confluent Kafka]
-    Kafka --> Flink
-    Flink --> MongoDB[(MongoDB)]
+flowchart TB
+    subgraph Source
+        MySQL[(MySQL)]
+    end
 
-    style MySQL fill:#3b82f6,color:#fff
-    style Kafka fill:#f59e0b,color:#000
-    style MongoDB fill:#16a34a,color:#fff
+    Source -->|binlog changes| CDC
+
+    subgraph CDC["Confluent Cloud"]
+        Debezium[Debezium Source Connector]
+        Kafka[Kafka Topics]
+        Flink[Flink SQL]
+        Debezium --> Kafka
+        Kafka --> Flink
+    end
+
+    CDC -->|joined results| Sink
+
+    subgraph Sink["MongoDB Atlas"]
+        MongoDB[(MongoDB)]
+    end
 ```
 
 - **Debezium**: MySQL binlog를 캡처해서 Kafka로 전송
@@ -96,29 +103,29 @@ Confluent 엔지니어도 "느린 수준은 아니지만 **반응성이 중요�
 ### 1. 컴포넌트 간 지연
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph AWS["AWS ap-northeast-2"]
         MySQL[(MySQL)]
         App[Application]
     end
 
-    subgraph Confluent["Confluent Cloud<br/>(same region)"]
-        Kafka[Kafka]
-        Flink[Flink]
+    MySQL -->|5ms| Debezium
+
+    subgraph Confluent["Confluent Cloud - same region"]
+        Debezium[Debezium Connector]
+        Kafka[Kafka Broker]
+        Flink[Flink SQL]
+        Debezium -->|serialize, batch| Kafka
+        Kafka -->|poll, fetch| Flink
     end
+
+    Flink -->|212ms| MongoDB
 
     subgraph Atlas["MongoDB Atlas"]
         MongoDB[(MongoDB)]
     end
 
-    MySQL --> Kafka
-    Kafka --> Flink
-    Flink --> MongoDB
-    App --> MongoDB
-
-    style AWS fill:#f59e0b,color:#000
-    style Confluent fill:#3b82f6,color:#fff
-    style Atlas fill:#16a34a,color:#fff
+    App -->|query| MongoDB
 ```
 
 Confluent Cloud는 AWS 동일 리전(ap-northeast-2)에 있어서 퍼블릭 망은 아니다. 그럼에도 지연이 발생한 이유:
@@ -175,19 +182,47 @@ PoC 12일에 약 **$620** 나왔다. 프로덕션이면 월 $1,500+ 예상.
 
 같은 PoC에서 Lakehouse 구성도 검증했다.
 
-```mermaid
-flowchart LR
-    MySQL[(MySQL)] --> Debezium
-    Debezium --> Kafka[Confluent Kafka]
-    Kafka --> S3Sink[S3 Sink Connector]
-    S3Sink --> S3[(S3<br/>Parquet)]
-    S3 --> Iceberg[Iceberg 테이블]
-    Iceberg --> Athena[Athena]
+![Lakehouse CDC Flow](/images/backend/lakehouse-flow.png)
 
-    style MySQL fill:#3b82f6,color:#fff
-    style Kafka fill:#f59e0b,color:#000
-    style S3 fill:#16a34a,color:#fff
-    style Athena fill:#8b5cf6,color:#fff
+```mermaid
+flowchart TB
+    subgraph Source
+        MySQL[(MySQL)]
+    end
+
+    Source -->|row changes| CDC
+
+    subgraph CDC["Confluent Cloud"]
+        Debezium[Debezium Source]
+        S3Sink[S3 Sink Connector]
+        Debezium --> S3Sink
+    end
+
+    CDC -->|append parquet| DataLake
+
+    subgraph DataLake["Data Lake - S3"]
+        Staging[S3 Parquet Staging]
+        Glue[Glue Catalog]
+        Staging --> Glue
+    end
+
+    DataLake -->|recent changes| Athena
+    DataLake -->|source SELECT| Athena
+
+    subgraph Athena
+        Merge[증분 동기화:<br/>MERGE 주기 실행]
+        Init[초기 적재:<br/>INSERT INTO Iceberg]
+    end
+
+    Athena --> Iceberg
+
+    subgraph Iceberg["Iceberg Table on S3"]
+        IcebergTable[glue_db.table_iceberg<br/>Partition: last_modified_ts]
+        IcebergGlue[Glue Catalog:<br/>Iceberg 메타데이터]
+        IcebergTable --> IcebergGlue
+    end
+
+    Iceberg -->|BI / Analytics| Output[분석 도구]
 ```
 
 **구성:**
