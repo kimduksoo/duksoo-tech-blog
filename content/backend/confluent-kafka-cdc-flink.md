@@ -54,12 +54,7 @@ Confluent 엔지니어 평가: "서비스 운영에 충분히 양호한 성능"
 
 ### Flink 8개 테이블 조인
 
-8개 테이블을 CDC 이벤트 기반으로 증분 조인했다:
-
-```
-lookup_contract_form, contract_counsel, selected_product,
-user, department, customer, contract_payback, contract_relation_reception
-```
+8개 테이블을 CDC 이벤트 기반으로 증분 조인했다. (메인 테이블 1개 + 참조 테이블 7개)
 
 **지연 시간 측정 결과 (10회):**
 
