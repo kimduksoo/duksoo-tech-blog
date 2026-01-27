@@ -194,6 +194,45 @@ agents:
 
 Helm upgrade 후 정상화됐다.
 
+### Step 6: Datadog kubernetes 메트릭 수집 실패 (업그레이드 이후 발견)
+
+업그레이드 후 Datadog 대시보드를 점검하다가 Pod 리소스 정보(CPU/Memory requests/limits)가 표시되지 않는 걸 발견했다.
+
+Node Agent 로그를 확인해보니 에러가 발생하고 있었다.
+
+```bash
+kubectl logs -n datadog -l app=datadog -c agent --tail=50 | grep error
+```
+
+```
+error pulling from collector "kubelet": couldn't fetch "podlist":
+unable to unmarshal podlist... decode slice: expect [ or n, but found {
+```
+
+**원인:** Kubernetes 1.33에서 kubelet API의 `allocatedResources` 필드 포맷이 **배열 `[]`에서 객체 `{}`로 변경**됐다. Datadog Agent 7.64.1은 이전 포맷만 지원해서 파싱에 실패한 것이다.
+
+**영향 범위:**
+
+| 메트릭 | 상태 |
+|--------|------|
+| container.* (containerd 직접 수집) | 정상 |
+| kubernetes.* (kubelet API) | 실패 |
+
+APP 서비스 자체에는 영향 없지만, Datadog에서 Pod CPU/Memory requests/limits 정보를 볼 수 없는 상태였다.
+
+**해결:**
+
+```bash
+# Datadog Helm chart 업그레이드 (Agent 7.66.1+ 포함)
+helm upgrade datadog datadog/datadog -n datadog \
+  --reset-then-reuse-values \
+  --version 3.163.0
+```
+
+`--reuse-values` 대신 `--reset-then-reuse-values`를 사용한 이유: 새 chart 버전에서 추가된 설정값(예: `dynamicInstrumentationGo.enabled`)이 nil이 되면서 template 에러가 발생한다. `--reset-then-reuse-values`는 새 chart의 기본값을 먼저 적용한 후 기존 커스텀 값을 덮어씌운다.
+
+참고: https://github.com/DataDog/datadog-agent/issues/37501
+
 ### dev 업그레이드 총 소요 시간
 
 | 단계 | 예상 | 실제 | 비고 |
