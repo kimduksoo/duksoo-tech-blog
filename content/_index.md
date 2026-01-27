@@ -9,6 +9,8 @@ Cloud Engineer, 8년차. <br>NAVER Cloud에서 System Engineer로 Private Cloud�
 
 **Skills** <br>AWS, GCP, NCP, Kubernetes, Terraform, Helm, ArgoCD, OpenStack, Xenserver, Bare Metal, Grafana, LGTM, Prometheus, Datadog, Python, Linux
 
+**Contact** <br>nong1000@naver.com
+
 ---
 
 ## Writing
