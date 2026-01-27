@@ -5,7 +5,7 @@ geekdocNav: false
 
 Cloud Engineer, 8년차. <br>NAVER Cloud에서 System Engineer로 Private Cloud를, Kakao에서 플랫폼 개발자로 OpenStack 플랫폼을 경험했습니다. <br>현재는 아정당에서 AWS 기반 인프라를 운영하고 있습니다.
 
-일하다 삽질한 거 까먹기 전에 적어두는 블로그입니다.
+운영하면서 겪은 이슈들, 까먹기 전에 기록해둡니다.
 
 **Skills** <br>AWS, GCP, NCP, Kubernetes, Terraform, Helm, ArgoCD, OpenStack, Xenserver, Bare Metal, Grafana, LGTM, Prometheus, Datadog, Python, Linux
 
