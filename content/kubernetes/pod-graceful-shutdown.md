@@ -119,11 +119,17 @@ spec:
 
 이 값은 "SIGTERM 보내고 30초 기다린다"가 아니다. **preStop 실행 시간을 포함한 전체 유예 시간**이다.
 
-```
-|← terminationGracePeriodSeconds (30초) →|
+```mermaid
+gantt
+    title terminationGracePeriodSeconds (30초)
+    dateFormat s
+    axisFormat %S초
 
-[preStop 실행 (10초)] → [SIGTERM] → [앱 정리 (20초)] → [SIGKILL]
-                                                           ↑ 시간 초과 시
+    section 종료 과정
+    preStop 실행          :a1, 0, 10s
+    SIGTERM 수신           :milestone, m1, after a1, 0s
+    앱 정리 (graceful)    :a2, after a1, 20s
+    SIGKILL (시간 초과 시) :milestone, m2, after a2, 0s
 ```
 
 preStop이 10초 걸리면, 앱이 SIGTERM을 처리할 수 있는 시간은 나머지 20초다.
@@ -148,40 +154,59 @@ preStop은 SIGTERM **이전에** 실행된다. 이 시간 동안:
 
 ### Before: preStop 없음
 
-```
-시간  0s        1s        2s        3s        4s        5s
-      │         │         │         │         │         │
-Pod   │ SIGTERM  │ 즉시종료  │         │         │         │
-      │ 수신     │ (Spring  │         │         │         │
-      │         │ immediate)│        │         │         │
-      │         │         │         │         │         │
-EP    │ 제거시작  │ 제거중   │ 제거완료 │         │         │
-      │         │         │         │         │         │
-      │    ⚠️    │   ⚠️    │         │         │         │
-      │ 트래픽   │ 트래픽   │         │         │         │
-      │ 아직옴   │ 아직옴   │         │         │         │
-      │ → 502   │ → 502   │         │         │         │
+```mermaid
+sequenceDiagram
+    participant K as Kubernetes
+    participant Pod as 구 Pod
+    participant EP as Endpoint
+    participant C as 클라이언트
+
+    K->>Pod: SIGTERM 전송
+    K->>EP: Endpoint 제거 시작 (비동기)
+    Pod->>Pod: 즉시 종료 (immediate)
+
+    Note over EP: Endpoint 아직 제거 안 됨
+
+    C->>Pod: 요청
+    Pod--xC: 502 Bad Gateway
+
+    C->>Pod: 요청
+    Pod--xC: 502 Bad Gateway
+
+    EP->>EP: Endpoint 제거 완료
+
+    Note over C,Pod: Endpoint 제거 전에 Pod가 먼저 죽음
 ```
 
 SIGTERM과 동시에 앱이 종료되지만, Endpoint 제거는 아직 진행 중이다. 이 시간차에 들어온 요청이 502가 된다.
 
 ### After: preStop + Graceful Shutdown
 
-```
-시간  0s        3s        5s        8s        10s
-      │         │         │         │         │
-Pre   │ sleep 5 실행중...  │ 완료    │         │
-Stop  │         │         │         │         │
-      │         │         │         │         │
-EP    │ 제거시작  │ 제거완료 │         │         │
-      │         │         │         │         │
-Pod   │         │         │ SIGTERM  │ graceful │ 종료
-      │         │         │ 수신     │ shutdown │
-      │         │         │         │ (진행중  │
-      │         │         │         │  요청완료)│
-      │         │         │         │         │
-      │ ✅ 트래픽│ ✅ 트래픽│ ✅ 새    │ ✅ 기존  │
-      │ 정상처리 │ 정상처리 │ 요청없음 │ 요청완료 │
+```mermaid
+sequenceDiagram
+    participant K as Kubernetes
+    participant Pod as 구 Pod
+    participant EP as Endpoint
+    participant C as 클라이언트
+
+    K->>Pod: preStop 실행 (sleep 5)
+    K->>EP: Endpoint 제거 시작 (비동기)
+
+    Note over Pod: sleep 5 대기 중...
+
+    C->>Pod: 요청
+    Pod-->>C: 200 OK (정상 처리)
+
+    EP->>EP: Endpoint 제거 완료 (3초)
+
+    Note over Pod: sleep 5 완료
+
+    K->>Pod: SIGTERM 전송
+    Pod->>Pod: graceful shutdown 시작
+    Pod->>Pod: 진행 중 요청 완료
+    Pod->>Pod: 정상 종료
+
+    Note over C,Pod: 새 트래픽 없음, 기존 요청 완료 후 종료
 ```
 
 preStop의 `sleep 5` 동안 Endpoint 제거가 완료된다. 그 후 SIGTERM을 받으면 Spring Boot가 graceful shutdown으로 진행 중인 요청을 마무리한다.
