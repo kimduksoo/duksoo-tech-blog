@@ -1,9 +1,9 @@
 ---
 title: "Kubernetes Probe 3종류, 왜 나눠져 있는가"
 weight: 6
-description: "StartupProbe, ReadinessProbe, LivenessProbe의 차이와 각각 언제 써야 하는지 정리."
-tags: ["Kubernetes", "Probe", "StartupProbe", "ReadinessProbe", "LivenessProbe"]
-keywords: ["Kubernetes Probe", "헬스체크", "Pod 상태 관리", "재시작 폭풍"]
+description: "StartupProbe, ReadinessProbe, LivenessProbe의 차이와 각각 언제 써야 하는지 정리. JVM Warm-up과 Probe 연동 패턴 포함."
+tags: ["Kubernetes", "Probe", "StartupProbe", "ReadinessProbe", "LivenessProbe", "JVM", "Warm-up"]
+keywords: ["Kubernetes Probe", "헬스체크", "Pod 상태 관리", "재시작 폭풍", "JVM Warm-up", "콜드 스타트"]
 ---
 
 Kubernetes Probe 3종류가 항상 헷갈린다. StartupProbe, ReadinessProbe, LivenessProbe. 왜 3개로 나눠져 있고, 언제 어떤 걸 써야 할까?
@@ -266,6 +266,187 @@ public String startup() {
 - **JVM 앱**: StartupProbe + ReadinessProbe
 - **LivenessProbe**: 정말 필요한 경우만
 
+## 실전: JVM Warm-up과 Probe 연동
+
+여기까지가 Probe의 기본이다. 하지만 JVM 애플리케이션을 운영하면 한 가지 더 고민이 생긴다. **StartupProbe를 통과했는데도 첫 요청이 느리다.**
+
+### StartupProbe 통과 ≠ 트래픽 준비 완료
+
+JVM 애플리케이션은 시작이 느린 것뿐 아니라, **시작 직후에도 느리다.** StartupProbe가 통과하면 Kubernetes는 트래픽을 보내기 시작한다. 하지만 JVM은 아직 차가운 상태다.
+
+```mermaid
+sequenceDiagram
+    participant K as Kubernetes
+    participant P as Pod (JVM)
+    participant C as 클라이언트
+
+    Note over P: Pod 시작
+
+    K->>P: StartupProbe
+    P-->>K: 성공 (Spring Boot 기동 완료)
+
+    Note over K,P: Readiness/Liveness 시작
+
+    K->>P: ReadinessProbe
+    P-->>K: 성공
+
+    Note over K: Endpoint 등록, 트래픽 전달 시작
+
+    C->>P: 첫 번째 요청
+    Note over P: 클래스 로딩 + 인터프리터 실행
+    P-->>C: 응답 (느림)
+
+    C->>P: 두 번째 요청
+    Note over P: JIT 컴파일 진행 중
+    P-->>C: 응답 (아직 느림)
+
+    Note over P: JIT 컴파일 완료, 캐시 적재
+
+    C->>P: N번째 요청
+    P-->>C: 응답 (정상 속도)
+```
+
+이 구간에서 사용자는 평소보다 느린 응답을 경험한다. 배포할 때마다 반복된다.
+
+### 왜 느린가: JVM 콜드 스타트
+
+JVM이 시작 직후 느린 이유는 3가지다.
+
+| 원인 | 설명 | 영향 |
+|------|------|------|
+| **클래스 로딩** | JVM은 클래스를 처음 사용할 때 로드한다 | 첫 호출이 수천 배 느림 |
+| **JIT 컴파일** | 바이트코드는 인터프리터로 실행 후, 충분히 호출되면 네이티브 코드로 변환 | 변환 전까지 느림 |
+| **I/O 커넥션 초기화** | DB 커넥션 풀, HTTP 클라이언트 등 첫 연결 수립 | 첫 I/O 호출이 느림 |
+
+LINE Engineering의 사례에서, 배포 직후 평균 응답 시간의 **약 6배**에 달하는 지연이 발생했다고 한다.
+
+### 해결: ReadinessProbe + Warm-up 연동
+
+핵심 아이디어는 간단하다. **Warm-up이 끝날 때까지 ReadinessProbe를 실패시키면 된다.** ReadinessProbe가 실패하면 Kubernetes는 해당 Pod에 트래픽을 보내지 않는다.
+
+```mermaid
+sequenceDiagram
+    participant K as Kubernetes
+    participant P as Pod (JVM)
+    participant C as 클라이언트
+
+    Note over P: Pod 시작
+
+    K->>P: StartupProbe
+    P-->>K: 성공 (Spring Boot 기동 완료)
+
+    Note over P: Warm-up 시작<br/>(클래스 로딩, JIT, 커넥션 초기화)
+
+    K->>P: ReadinessProbe
+    P-->>K: 실패 (Warm-up 진행 중)
+    Note over K: 트래픽 보내지 않음
+
+    K->>P: ReadinessProbe
+    P-->>K: 실패 (Warm-up 진행 중)
+
+    Note over P: Warm-up 완료
+
+    K->>P: ReadinessProbe
+    P-->>K: 성공
+    Note over K: Endpoint 등록
+
+    C->>P: 요청
+    P-->>C: 응답 (정상 속도)
+```
+
+### Spring Boot Actuator 활용
+
+Spring Boot Actuator의 Health Group 기능으로 구현할 수 있다.
+
+```java
+@Component
+public class WarmupHealthIndicator implements HealthIndicator {
+
+    private volatile boolean warmupDone = false;
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onReady() {
+        // 앱 시작 후 warm-up 실행
+        runWarmup();
+        warmupDone = true;
+    }
+
+    @Override
+    public Health health() {
+        if (warmupDone) {
+            return Health.up().build();
+        }
+        return Health.down()
+            .withDetail("reason", "Warm-up in progress")
+            .build();
+    }
+
+    private void runWarmup() {
+        // 1. 주요 API 내부 호출 (클래스 로딩 유도)
+        // 2. DB 쿼리 실행 (커넥션 풀 초기화)
+        // 3. 캐시 적재
+    }
+}
+```
+
+```yaml
+# application.yml
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState, warmup   # warm-up 포함
+        liveness:
+          include: livenessState            # warm-up 제외
+```
+
+**Liveness 그룹에서는 warm-up을 제외**한다. Warm-up 중이라고 Pod를 재시작하면 안 되기 때문이다.
+
+| Probe | Health Group | warm-up 포함 | 이유 |
+|-------|-------------|:------------:|------|
+| ReadinessProbe | `readiness` | O | warm-up 전 트래픽 차단 |
+| LivenessProbe | `liveness` | X | warm-up 중 재시작 방지 |
+
+### Warm-up 시 주의사항
+
+**1. 동시 배포 시 외부 시스템 부하**
+
+Rolling Update로 여러 Pod가 동시에 시작되면, 모든 Pod가 동시에 warm-up을 실행한다. warm-up에서 외부 API나 DB를 호출한다면 **자체 DDoS**가 될 수 있다.
+
+```mermaid
+flowchart LR
+    P1[Pod 1 Warm-up] --> DB[(DB)]
+    P2[Pod 2 Warm-up] --> DB
+    P3[Pod 3 Warm-up] --> DB
+    P4[Pod 4 Warm-up] --> DB
+
+    DB -->|과부하| X[장애]
+
+    style X fill:#dc2626,color:#fff
+```
+
+**대응:** warm-up 호출량을 최소화하거나, Pod 시작 간격을 두는 것이 좋다.
+
+**2. Warm-up 실패 처리**
+
+warm-up이 실패하면 ReadinessProbe가 영원히 실패한다. 배포가 멈춘다.
+
+- 타임아웃을 설정하고, 실패해도 warm-up 완료로 처리하는 fallback이 필요하다
+- warm-up 없이 느린 것이, 배포가 멈추는 것보다 낫다
+
+**3. 타임아웃 설정 조정**
+
+warm-up 시간만큼 StartupProbe의 대기 시간을 늘려야 한다.
+
+```yaml
+startupProbe:
+  httpGet:
+    path: /actuator/health/readiness
+  periodSeconds: 10
+  failureThreshold: 30    # warm-up 포함 최대 5분 대기
+```
+
 ## 정리
 
 1. **StartupProbe** - 시작 대기용, 1회성
@@ -276,3 +457,9 @@ public String startup() {
 - LivenessProbe는 **단순하게**, 타임아웃은 **여유있게**
 - 복잡한 체크는 ReadinessProbe에서
 - 3개 다 쓸 필요 없음, 상황에 맞게 선택
+- JVM 앱은 **StartupProbe 통과 ≠ 트래픽 준비 완료**, warm-up과 ReadinessProbe 연동을 고려
+
+## 참고
+
+- [LINE Engineering - Spring Boot + Kubernetes 환경에서 Warm-up 적용기](https://engineering.linecorp.com/ko/blog/apply-warm-up-in-spring-boot-and-kubernetes)
+- [Pod 종료 전략 - terminationGracePeriodSeconds와 preStop](/kubernetes/pod-graceful-shutdown/)
