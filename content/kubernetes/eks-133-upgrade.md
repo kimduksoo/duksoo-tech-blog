@@ -21,7 +21,7 @@ dev에서 삽질한 덕분에 prod는 40분 만에 깔끔하게 끝냈다. 그 �
 
 두 환경 모두 **Self-managed Addon** 방식이다. EKS managed addon이 아니라 직접 이미지 버전을 관리한다. 이게 업그레이드 시 추가 작업이 필요한 이유다.
 
-## dev 환경 업그레이드 (2026-01-23)
+## dev 환경 업그레이드
 
 ### Step 1: Control Plane 업그레이드
 
@@ -205,7 +205,7 @@ Helm upgrade 후 정상화됐다.
 | 검증 | 5분 | 20분 | DD_HOSTNAME 발견 |
 | **총** | **45분** | **~2시간 30분** | |
 
-## prod 환경 업그레이드 (2026-01-27)
+## prod 환경 업그레이드
 
 dev에서 삽질한 내용을 바탕으로 prod 업그레이드 전에 사전 작업을 진행했다.
 
@@ -221,23 +221,15 @@ dev에서 삽질한 내용을 바탕으로 prod 업그레이드 전에 사전 �
 
 ### prod 업그레이드 타임라인
 
-```
-06:39 - 작업 시작
-06:40 - Pre-check (노드 상태, 워크로드 확인)
-06:41 - Control Plane 업그레이드 시작
-06:49 - Control Plane 완료 (8분)
-06:50 - VPC CNI env 제거 (사전 조치)
-06:51 - VPC CNI 업그레이드
-06:53 - CoreDNS 업그레이드
-06:54 - kube-proxy 업그레이드
-06:55 - Pod IP 할당 테스트 - 성공
-06:56 - MNG 노드 업그레이드 시작
-07:05 - MNG 노드 업그레이드 완료 (Surge 방식)
-07:06 - Karpenter AMI Selector 변경
-07:08 - Karpenter Drift 감지, 노드 교체 시작
-07:18 - Karpenter 노드 5개 교체 완료
-07:20 - 전체 검증 완료
-```
+| 단계 | 소요 시간 | 누적 |
+|------|----------|------|
+| Pre-check | 1분 | 1분 |
+| Control Plane 업그레이드 | 8분 | 9분 |
+| VPC CNI env 제거 + Addon 업그레이드 | 5분 | 14분 |
+| Pod IP 할당 테스트 | 1분 | 15분 |
+| MNG 노드 업그레이드 (Surge) | 9분 | 24분 |
+| Karpenter 노드 교체 (5개) | 12분 | 36분 |
+| 전체 검증 | 5분 | 41분 |
 
 **총 41분.** dev에서 2시간 30분 걸린 것과 비교하면 극적인 차이다.
 
@@ -392,6 +384,45 @@ EKS managed addon이면 버전 호환성을 AWS가 관리해준다. Self-managed
 - Karpenter AMI 변경 → 노드가 안 뜨면?
 
 미리 시뮬레이션하면 문제를 예방할 수 있다.
+
+### 5. AI 활용 - 대시보드 & 런북 자동 생성
+
+이번 업그레이드에서 Claude Code를 활용해 **사전 점검 대시보드**와 **실행 런북**을 자동 생성했다.
+
+#### EKS Upgrade Readiness Dashboard
+
+dev에서 발견한 이슈들을 prod 사전 점검에 반영한 대시보드다. 한눈에 BLOCKER/WARNING/INSIGHTS를 파악할 수 있다.
+
+| 섹션 | 내용 |
+|------|------|
+| BLOCKERS | Karpenter 버전, VPC CNI env 불일치 등 필수 조치 |
+| WARNINGS | 주의 필요 항목 |
+| INSIGHTS | EKS Upgrade Insights API 결과 |
+| Dev 경험 반영 | dev에서 발견한 이슈 → prod 체크 항목으로 |
+
+**핵심 기능:**
+- 클러스터 상태 자동 조회 (AWS CLI, kubectl)
+- dev 이슈 → prod BLOCKER로 자동 연결
+- 해결 여부 실시간 표시 (검증됨 ✓)
+
+#### EKS Upgrade Runbook
+
+실제 작업 시 따라갈 수 있는 단계별 런북이다. 작업 개요, BLOCKER 사전 작업, 단계별 체크리스트, 롤백 절차가 포함된다.
+
+| 섹션 | 내용 |
+|------|------|
+| 작업 개요 | 날짜, 예상 소요시간, 서비스 영향, Jira 링크 |
+| BLOCKER 사전 작업 | dev 경험 기반 필수 선행 작업 |
+| 단계별 체크리스트 | Control Plane → Addons → MNG → Karpenter |
+| 롤백 절차 | 문제 발생 시 복구 방법 |
+
+**활용 방식:**
+1. AI가 클러스터 상태 조회 → 대시보드 생성
+2. dev 이슈 분석 → BLOCKER 항목 도출
+3. 런북 생성 → 팀 공유 및 작업 시 참조
+4. 작업 완료 후 → 블로그 글 자동 생성
+
+prod 업그레이드가 41분 만에 끝난 건 이런 사전 준비 덕분이다. AI를 "코드 작성 도구"가 아니라 **"운영 지식 정리 도구"**로 활용한 사례다.
 
 ## 버전 정보
 
