@@ -211,13 +211,13 @@ dev에서 삽질한 내용을 바탕으로 prod 업그레이드 전에 사전 �
 
 ### 사전 작업 (전날)
 
-| 작업 | Jira | 내용 |
-|------|------|------|
-| DD_HOSTNAME 설정 | DEV-776 | Datadog Helm values 수정 |
-| Replicas HA | DEV-775 | 핵심 워크로드 replicas 2 이상 확인 |
-| PDB 설정 | - | 핵심 워크로드 PDB 확인 |
-| MNG maxSize | DEV-777 | maxSize 5로 변경 (desiredSize 3) |
-| Karpenter 업그레이드 | DEV-613 | v1.0.5 → v1.5.0, CRD 선행 적용 |
+| 작업 | 내용 |
+|------|------|
+| DD_HOSTNAME 설정 | Datadog Helm values 수정 |
+| Replicas HA | 핵심 워크로드 replicas 2 이상 확인 |
+| PDB 설정 | 핵심 워크로드 PDB 확인 |
+| MNG maxSize | maxSize > desiredSize 확보 |
+| Karpenter 업그레이드 | v1.0.5 → v1.5.0, CRD 선행 적용 |
 
 ### prod 업그레이드 타임라인
 
