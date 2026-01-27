@@ -1,4 +1,4 @@
-baseURL = '/'
+baseURL = 'https://duksoo-tech-blog.pages.dev/'
 languageCode = 'ko-kr'
 title = "duksoo.dev"
 theme = 'hugo-geekdoc'
