@@ -14,10 +14,10 @@ dev에서 삽질한 덕분에 prod는 40분 만에 깔끔하게 끝냈다. 그 �
 
 ## 환경 구성
 
-| 환경 | 클러스터 | 노드 구성 | 특이사항 |
-|------|---------|----------|---------|
-| dev | eks-blue | MNG 2개 + Karpenter 5개 | Self-managed Addons |
-| prod | eks-blue | MNG 3개 + Karpenter 5개 | Self-managed Addons |
+| 환경 | 노드 구성 | 특이사항 |
+|------|----------|---------|
+| dev | MNG + Karpenter | Self-managed Addons |
+| prod | MNG + Karpenter | Self-managed Addons |
 
 두 환경 모두 **Self-managed Addon** 방식이다. EKS managed addon이 아니라 직접 이미지 버전을 관리한다. 이게 업그레이드 시 추가 작업이 필요한 이유다.
 
