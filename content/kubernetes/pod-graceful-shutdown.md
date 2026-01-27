@@ -119,18 +119,12 @@ spec:
 
 이 값은 "SIGTERM 보내고 30초 기다린다"가 아니다. **preStop 실행 시간을 포함한 전체 유예 시간**이다.
 
-```mermaid
-gantt
-    title terminationGracePeriodSeconds (30초)
-    dateFormat s
-    axisFormat %S초
-
-    section 종료 과정
-    preStop 실행          :a1, 0, 10s
-    SIGTERM 수신           :milestone, m1, after a1, 0s
-    앱 정리 (graceful)    :a2, after a1, 20s
-    SIGKILL (시간 초과 시) :milestone, m2, after a2, 0s
-```
+| 구간 | 시간 | 누적 | 설명 |
+|------|------|------|------|
+| preStop 실행 | 10초 | 0~10초 | SIGTERM 전에 실행 |
+| SIGTERM 수신 | - | 10초 | preStop 완료 후 전송 |
+| 앱 정리 (graceful) | 20초 | 10~30초 | 진행 중 요청 처리 |
+| **SIGKILL** | - | **30초** | 시간 초과 시 강제 종료 |
 
 preStop이 10초 걸리면, 앱이 SIGTERM을 처리할 수 있는 시간은 나머지 20초다.
 
