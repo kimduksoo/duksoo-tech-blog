@@ -258,25 +258,32 @@ dev 경험을 바탕으로 정리한 체크리스트다.
 
 ```bash
 # 1. 클러스터 상태
-aws eks describe-cluster --name ${CLUSTER} --query 'cluster.{version:version,status:status}'
+aws eks describe-cluster --name ${CLUSTER} \
+  --query 'cluster.{version:version,status:status}'
 
 # 2. 노드 상태
 kubectl get nodes -o wide
 
 # 3. 핵심 워크로드 replicas 확인
-kubectl get deploy -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,REPLICAS:.spec.replicas | grep -v "^kube-"
+kubectl get deploy -A \
+  -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,REPLICAS:.spec.replicas \
+  | grep -v "^kube-"
 
 # 4. PDB 확인
 kubectl get pdb -A
 
 # 5. MNG maxSize 확인 (Surge 업그레이드용)
-aws eks describe-nodegroup --cluster-name ${CLUSTER} --nodegroup-name ${NG} \
+aws eks describe-nodegroup \
+  --cluster-name ${CLUSTER} \
+  --nodegroup-name ${NG} \
   --query 'nodegroup.scalingConfig'
 # maxSize > desiredSize 필요!
 
 # 6. VPC CNI Network Policy 설정 확인
-kubectl get configmap amazon-vpc-cni -n kube-system -o yaml | grep enable-network-policy
-kubectl get daemonset aws-node -n kube-system -o yaml | grep -A1 NETWORK_POLICY_ENFORCING_MODE
+kubectl get cm amazon-vpc-cni -n kube-system -o yaml \
+  | grep enable-network-policy
+kubectl get ds aws-node -n kube-system -o yaml \
+  | grep -A1 NETWORK_POLICY_ENFORCING_MODE
 # 불일치하면 env 제거 필요
 ```
 
