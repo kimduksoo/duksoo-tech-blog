@@ -199,11 +199,11 @@ Helm upgrade 후 정상화됐다.
 | 단계 | 예상 | 실제 | 비고 |
 |------|------|------|------|
 | Control Plane | 10분 | 8분 | 정상 |
-| Core Addons | 5분 | 45분 | VPC CNI 설정 불일치 |
-| MNG Node Group | 10분 | 25분 | maxSize 문제 |
-| Karpenter Nodes | 15분 | 40분 | CRD 버전 문제 |
-| 검증 | 5분 | 20분 | DD_HOSTNAME 발견 |
-| **총** | **45분** | **~2시간 30분** | |
+| Core Addons | 5분 | 25분 | VPC CNI 설정 불일치 |
+| MNG Node Group | 10분 | 15분 | maxSize 문제 |
+| Karpenter Nodes | 15분 | 25분 | CRD 버전 문제 |
+| 검증 | 5분 | 15분 | DD_HOSTNAME 발견 |
+| **총** | **45분** | **~90분** | |
 
 ## prod 환경 업그레이드
 
