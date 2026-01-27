@@ -393,6 +393,8 @@ EKS managed addon이면 버전 호환성을 AWS가 관리해준다. Self-managed
 
 dev에서 발견한 이슈들을 prod 사전 점검에 반영한 대시보드다. 한눈에 BLOCKER/WARNING/INSIGHTS를 파악할 수 있다.
 
+![EKS Upgrade Readiness Dashboard](/images/eks-upgrade/dashboard.png)
+
 | 섹션 | 내용 |
 |------|------|
 | BLOCKERS | Karpenter 버전, VPC CNI env 불일치 등 필수 조치 |
@@ -408,6 +410,8 @@ dev에서 발견한 이슈들을 prod 사전 점검에 반영한 대시보드다
 #### EKS Upgrade Runbook
 
 실제 작업 시 따라갈 수 있는 단계별 런북이다. 작업 개요, BLOCKER 사전 작업, 단계별 체크리스트, 롤백 절차가 포함된다.
+
+![EKS Upgrade Runbook](/images/eks-upgrade/runbook.png)
 
 | 섹션 | 내용 |
 |------|------|
