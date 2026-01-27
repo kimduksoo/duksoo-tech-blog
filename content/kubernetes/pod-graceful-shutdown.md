@@ -81,23 +81,23 @@ SIGTERM을 받으면 Spring Boot가 **즉시 종료**하고 있었다.
 
 ```mermaid
 flowchart TD
-    A["Pod 삭제 요청"] --> B["API Server: Pod를 Terminating 상태로 변경"]
-    B --> C1["kubelet: preStop 실행"]
-    B --> C2["Endpoint Controller: Endpoint에서 Pod 제거"]
+    A["Pod 삭제 요청"] --> B["Terminating 상태 변경"]
+    B --> C1["preStop 실행"]
+    B --> C2["Endpoint 제거 시작"]
 
-    C1 --> D["kubelet: 컨테이너에 SIGTERM 전송"]
-    D --> E{"앱이 SIGTERM 처리?"}
-    E -->|"처리함 (graceful)"| F["앱이 정리 후 종료"]
-    E -->|"무시함 (즉시 종료)"| G["앱 바로 종료"]
+    C1 --> D["SIGTERM 전송"]
+    D --> E{"SIGTERM 처리?"}
+    E -->|"graceful"| F["정리 후 종료"]
+    E -->|"즉시 종료"| G["바로 종료"]
 
-    F --> H{"terminationGracePeriod 초과?"}
+    F --> H{"유예 시간 초과?"}
     G --> H
     H -->|"미초과"| I["Pod 삭제 완료"]
-    H -->|"초과"| J["SIGKILL (강제 종료)"]
+    H -->|"초과"| J["SIGKILL"]
     J --> I
 
-    C2 -.->|"비동기 (타이밍 보장 없음)"| K["iptables/IPVS 업데이트"]
-    K -.-> L["실제 트래픽 차단"]
+    C2 -.->|"비동기"| K["iptables 업데이트"]
+    K -.-> L["트래픽 차단"]
 
     style C1 fill:#3b82f6,color:#fff
     style C2 fill:#f59e0b,color:#000
