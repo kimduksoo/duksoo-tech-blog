@@ -127,8 +127,7 @@ c.execute('''
 3. **타임라인**: 1분 단위로 러너별 Busy/Idle 히스토리를 시각화
 4. **통계**: 수집 레코드 수, Full Busy 시간, Full Busy 비율
 
-<!-- TODO: 대시보드 스크린샷 추가 -->
-<!-- ![대시보드 UI](/images/automation/bitbucket-runner-dashboard.png) -->
+![대시보드 UI](/images/ai/runner-dashboard.png)
 
 ### API Rate Limit 고려
 
