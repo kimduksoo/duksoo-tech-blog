@@ -1,5 +1,5 @@
 ---
-title: "CloudFront 비용이 50% 급증했다 — 프론트엔드 최적화로 월 $1,170 절감한 이야기"
+title: "프론트엔드 최적화로 CloudFront 비용 월 $1,170 절감한 이야기"
 weight: 1
 description: "신규 페이지 배포 후 CloudFront 전송량이 50% 급증한 원인을 추적하고, 이미지 최적화와 lazy loading으로 비용을 절감한 경험."
 tags: ["AWS", "CloudFront", "프론트엔드", "이미지최적화", "FinOps"]
