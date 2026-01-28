@@ -120,14 +120,14 @@ c.execute('''
 
 ### 대시보드 UI
 
+![대시보드 UI](/images/ai/runner-dashboard.png)
+
 다크 테마의 대시보드는 4가지 정보를 한 화면에 보여준다:
 
 1. **요약 카드**: 전체/사용 중/대기 중 runner 수, 실행 중 빌드 수
 2. **Runner 상태**: 각 runner의 현재 상태와 사용 중인 리포지토리
 3. **타임라인**: 1분 단위로 러너별 Busy/Idle 히스토리를 시각화
 4. **통계**: 수집 레코드 수, Full Busy 시간, Full Busy 비율
-
-![대시보드 UI](/images/ai/runner-dashboard.png)
 
 ### API Rate Limit 고려
 
