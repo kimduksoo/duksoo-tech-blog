@@ -59,7 +59,7 @@ kubectl run test-pod --image=busybox --restart=Never --command -- sleep 30
 kubectl get pod test-pod -o wide
 ```
 
-**Pod가 Pending 상태에서 멈췄다.** IP 할당이 안 된다.
+**Pod가 Pending 상태에서 멈췄다.** VPC CNI 비정상으로 aws-node DaemonSet이 실패하면서 노드가 NotReady 상태가 되어 스케줄링 자체가 안 됐다.
 
 ```
 NAME       READY   STATUS    RESTARTS   AGE   IP       NODE

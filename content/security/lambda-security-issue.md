@@ -35,7 +35,7 @@ flowchart LR
 **왜 미사용 리전인가?**
 - AWS 리전이 30개 이상
 - 대부분 서울(ap-northeast-2) 정도만 사용
-- 도쿄(ap-northeast-1), 오레곤(us-west-1) 등은 안 봄
+- 도쿄(ap-northeast-1), 오레곤(us-west-2) 등은 안 봄
 - **모니터링 사각지대**
 
 실제 사례에서 공격자는 `ap-northeast-1`(도쿄)에 50개 이상의 EC2 인스턴스를 생성해서 한 달간 크립토마이닝을 돌렸다. 피해자는 청구서를 보고서야 알았다. ([The Danger of Unused AWS Regions - CloudSploit](https://medium.com/cloudsploit/the-danger-of-unused-aws-regions-af0bf1b878fc))

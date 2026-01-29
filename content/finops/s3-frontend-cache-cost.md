@@ -55,7 +55,7 @@ Cache-Control: max-age=86400
 
 **동작:**
 - S3에서 `Cache-Control: max-age=86400` 헤더가 오면 → CloudFront가 24시간 캐시
-- 헤더 없으면 → CloudFront 정책에 따라 다름 (기본값은 24시간이지만, 조건에 따라 캐시 안 될 수 있음)
+- 헤더 없으면 → CloudFront 캐시 정책의 Default TTL에 따름 (CachingOptimized 정책은 24시간이지만, 커스텀 정책에서 Default TTL이 0이면 캐시되지 않음)
 
 ## 해결: S3 메타데이터에 Cache-Control 추가
 

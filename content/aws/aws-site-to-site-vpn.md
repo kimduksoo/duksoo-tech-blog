@@ -16,7 +16,7 @@ AWS Site-to-Site VPN은 **1개의 VPN Connection = 2개의 터널**을 기본 �
 
 - 두 터널은 서로 다른 Outside IP, Inside IP, PSK 값을 가짐
 - **AWS는 항상 Responder(수동)**, 온프레미스 라우터가 Initiator(능동) 역할
-- 8시간 이상 트래픽이 없으면 세션이 내려갈 수 있으며, 이 경우 온프레미스에서 재연결 요청 필요
+- DPD(Dead Peer Detection)에 의해 트래픽이 없으면 터널이 내려갈 수 있으며, IKE SA Lifetime(8시간)마다 rekeying도 필요하다. AWS는 Responder이므로 두 경우 모두 온프레미스에서 재협상을 시작해야 한다
 
 ```mermaid
 flowchart LR
