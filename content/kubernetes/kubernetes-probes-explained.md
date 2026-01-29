@@ -64,9 +64,9 @@ livenessProbe:
 
 **문제:**
 - 시작할 때는 2분 기다려줌 ✓
-- 운영 중 장애 감지도 2분 걸림 ✗
+- Pod 재시작 시 다시 2분 공백 ✗
 
-앱이 죽어도 2분간 모른다.
+Pod가 재시작되면 `initialDelaySeconds` 때문에 다시 2분간 모니터링이 비게 된다.
 
 ### StartupProbe 도입 후
 
@@ -120,7 +120,7 @@ startupProbe:
     port: 8080
   initialDelaySeconds: 10
   periodSeconds: 10
-  failureThreshold: 30    # 최대 5분 대기 (10초 × 30회)
+  failureThreshold: 30    # 최대 약 5분 10초 대기 (10초 + 10초 × 30회)
 ```
 
 ### ReadinessProbe: 트래픽 제어
@@ -442,9 +442,9 @@ warm-up 시간만큼 StartupProbe의 대기 시간을 늘려야 한다.
 ```yaml
 startupProbe:
   httpGet:
-    path: /actuator/health/readiness
+    path: /actuator/health/liveness   # warm-up 제외, 앱 기동만 확인
   periodSeconds: 10
-  failureThreshold: 30    # warm-up 포함 최대 5분 대기
+  failureThreshold: 30    # 최대 약 5분 대기
 ```
 
 ## 정리
