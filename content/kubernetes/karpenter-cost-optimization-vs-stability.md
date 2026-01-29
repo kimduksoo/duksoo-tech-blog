@@ -69,7 +69,9 @@ Pod가 하나도 없는 빈 노드를 삭제한다. 가장 안전한 Disruption�
 
 노드의 Pod들이 다른 노드에 수용 가능하다고 판단되면, 해당 노드의 Pod를 이동시키고 노드를 삭제한다. `consolidateAfter: 300s` 설정은 Underutilized 상태가 5분 이상 지속될 때 실행한다는 의미다.
 
-문제는 beta 환경처럼 평시 CPU 사용률이 극도로 낮은 경우다. 예를 들어 서비스 A는 평시 0.1 코어를 사용하지만 기동 시 2.5 코어 이상을 사용한다. 대부분의 시간에 Underutilized 판정이 나올 수 있고, consolidation이 빈번하게 발생한다.
+여기서 중요한 점은 **Karpenter가 실제 CPU/메모리 사용량(usage)이 아니라 Pod의 resource requests 기준으로 판단**한다는 것이다. Prometheus나 Metrics Server를 참조하지 않는다. 노드에 배치된 Pod들의 requests 합산이 노드 용량 대비 작으면, 더 작은 노드로 교체하거나 다른 노드에 합칠 수 있다고 판단한다.
+
+beta 환경에서는 서비스 A가 평시 0.1 코어만 사용하고 기동 시에만 2.5 코어 이상을 사용하는 구조였다. 평시 사용량이 낮으니 requests도 낮게 설정할 수밖에 없고, 그 결과 노드의 requests 합산이 작아져 Consolidation 대상이 되기 쉬운 구조였다.
 
 **3. Drift**
 
