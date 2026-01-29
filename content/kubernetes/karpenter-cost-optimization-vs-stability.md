@@ -10,6 +10,19 @@ Karpenter는 비용 최적화 도구가 아니다. 노드 수명주기 관리 �
 
 beta 환경에서 QA 팀이 업무시간 중 잦은 Pod 재시작으로 불편을 호소했다. 원인을 추적하니 Karpenter의 비용 최적화 정책과 Spot 인스턴스, AMI 자동 업데이트가 복합적으로 작용하고 있었다. Karpenter의 Disruption 메커니즘을 이해하고, 비용과 안정성의 균형점을 찾은 과정을 공유한다.
 
+## Karpenter란
+
+[Karpenter](https://karpenter.sh/)는 Kubernetes 노드의 프로비저닝과 수명주기를 자동으로 관리하는 오픈소스 프로젝트다. 원래 AWS에서 시작했지만, 현재는 `kubernetes-sigs` 산하의 클라우드 중립 Core와 클라우드별 Provider로 분리되어 있다. AWS(EKS)와 Azure(AKS)에서 공식 지원한다.
+
+기존 Cluster Autoscaler와의 핵심 차이는 **노드 그룹 없이 워크로드에 최적화된 인스턴스를 직접 선택**한다는 점이다. Pod가 스케줄링되지 못하면 필요한 스펙의 노드를 즉시 생성하고, 사용률이 낮아지면 노드를 정리(Consolidation)한다. 이 자동화된 노드 수명주기 관리가 비용 절감으로 이어진다.
+
+Karpenter의 주요 리소스는 두 가지다.
+
+| 리소스 | 역할 | 예시 설정 |
+|--------|------|-----------|
+| **NodePool** | 노드 프로비저닝/Disruption 정책 | 인스턴스 타입, Spot/On-Demand, Consolidation 정책 |
+| **EC2NodeClass** (AWS) | 클라우드 리소스 스펙 | AMI, 서브넷, 보안그룹, 디스크 |
+
 ## 환경 구성
 
 beta는 dev와 동일한 EKS 클러스터를 공유하며, 네임스페이스로 환경을 분리한다. 비용 효율을 위해 Karpenter + Spot 인스턴스를 사용하고 있다.
