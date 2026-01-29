@@ -168,7 +168,7 @@ spec:
 
 이 설정의 의미:
 
-- **월~금 08:00~22:00 KST**: `nodes: "0"` → 자발적 Disruption이 0개 노드까지만 허용 = 완전 차단
+- **월\~금 08:00\~22:00 KST**: `nodes: "0"` → 자발적 Disruption이 0개 노드까지만 허용 = 완전 차단
 - **야간/주말**: `nodes: 10%` → 전체 노드의 10%까지 동시 교체 허용
 - **차단 대상**: Consolidation, Drift, Expiration 모두 포함
 
