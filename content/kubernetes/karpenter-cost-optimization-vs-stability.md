@@ -41,7 +41,7 @@ beta는 dev와 동일한 EKS 클러스터를 공유하며, 네임스페이스로
 
 ## 문제 상황
 
-QA 팀에서 beta 환경의 CRM, PNB 서비스가 업무시간 중 반복적으로 재시작된다는 리포트가 올라왔다. 확인해보니 Karpenter가 비용 최적화 판정으로 노드를 연쇄적으로 삭제하고 있었다.
+QA 팀에서 beta 환경의 서비스 A, 서비스 B가 업무시간 중 반복적으로 재시작된다는 리포트가 올라왔다. 확인해보니 Karpenter가 비용 최적화 판정으로 노드를 연쇄적으로 삭제하고 있었다.
 
 ```
 06:19 UTC  ip-10-0-36-140  삭제 (Empty)
@@ -51,9 +51,9 @@ QA 팀에서 beta 환경의 CRM, PNB 서비스가 업무시간 중 반복적으�
 07:11 UTC  ip-10-0-41-152  삭제 (Underutilized)
 ```
 
-약 50분간 5개 노드가 순차적으로 삭제되면서, Pod들이 eviction → 재스케줄링을 3~5회 반복했다. 동시에 삭제되는 것은 아니지만, 체감상 "계속 재시작되는" 상황이었다.
+약 50분간 5개 노드가 순차적으로 삭제되면서, 서비스 A, 서비스 B Pod들이 eviction → 재스케줄링을 3~5회 반복했다. 동시에 삭제되는 것은 아니지만, 체감상 "계속 재시작되는" 상황이었다.
 
-추가로 Valkey(Redis 호환)를 Pod로 운영하고 있었는데, Primary Pod가 eviction될 때 Replica의 liveness probe가 Primary 연결까지 체크하는 구조여서 연쇄 장애가 발생하기도 했다. 이 이슈는 probe 설정 변경으로 별도 해결했다.
+추가로 Redis 호환 캐시를 Pod로 운영하고 있었는데, Primary Pod가 eviction될 때 Replica의 liveness probe가 Primary 연결까지 체크하는 구조여서 연쇄 장애가 발생하기도 했다. 이 이슈는 probe 설정 변경으로 별도 해결했다.
 
 ## Karpenter Disruption 이해하기
 
@@ -69,7 +69,7 @@ Pod가 하나도 없는 빈 노드를 삭제한다. 가장 안전한 Disruption�
 
 노드의 Pod들이 다른 노드에 수용 가능하다고 판단되면, 해당 노드의 Pod를 이동시키고 노드를 삭제한다. `consolidateAfter: 300s` 설정은 Underutilized 상태가 5분 이상 지속될 때 실행한다는 의미다.
 
-문제는 beta 환경처럼 평시 CPU 사용률이 극도로 낮은 경우(0.1 코어)다. 대부분의 시간에 Underutilized 판정이 나올 수 있고, consolidation이 빈번하게 발생한다.
+문제는 beta 환경처럼 평시 CPU 사용률이 극도로 낮은 경우다. 예를 들어 서비스 A는 평시 0.1 코어를 사용하지만 기동 시 2.5 코어 이상을 사용한다. 대부분의 시간에 Underutilized 판정이 나올 수 있고, consolidation이 빈번하게 발생한다.
 
 **3. Drift**
 
