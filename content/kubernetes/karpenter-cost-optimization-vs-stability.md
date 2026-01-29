@@ -27,15 +27,15 @@ Karpenter의 주요 리소스는 두 가지다.
 
 beta는 dev와 동일한 EKS 클러스터를 공유하며, 네임스페이스로 환경을 분리한다. 비용 효율을 위해 Karpenter + Spot 인스턴스를 사용하고 있다.
 
-| 항목 | 설정 |
-|------|------|
-| NodePool | `dev-service-karpenter` |
-| Capacity Type | **Spot 전용** |
-| Instance Category | c, t, m (8 vCPU) |
-| Consolidation Policy | `WhenEmptyOrUnderutilized` |
-| ConsolidateAfter | `300s` (5분) |
-| ExpireAfter | `720h` (30일) |
-| AMI Selector | `amazon-eks-node-al2023-x86_64-standard-1.34*` (와일드카드) |
+| 항목 | 설정 | 설명 |
+|------|------|------|
+| NodePool | `dev-service-karpenter` | Karpenter가 노드를 관리하는 단위. 프로비저닝/Disruption 정책을 정의한다 |
+| Capacity Type | **Spot 전용** | On-Demand 대비 60~70% 저렴하지만, AWS가 언제든 회수할 수 있다 |
+| Instance Category | c, t, m (8 vCPU) | Karpenter가 선택할 수 있는 인스턴스 패밀리. 다양할수록 Spot 확보 확률이 높다 |
+| Consolidation Policy | `WhenEmptyOrUnderutilized` | 빈 노드뿐 아니라 리소스가 남는 노드도 정리한다. 가장 공격적인 정책 |
+| ConsolidateAfter | `300s` (5분) | Underutilized 상태가 5분 지속되면 Consolidation을 시작한다 |
+| ExpireAfter | `720h` (30일) | 노드 생성 후 30일이 지나면 교체한다. 보안 패치 적용과 리소스 프래그멘테이션 해소 목적 |
+| AMI Selector | `amazon-eks-node-al2023-x86_64-standard-1.34*` (와일드카드) | 와일드카드로 최신 AMI를 자동 선택. 새 AMI 릴리스 시 기존 노드가 Drift 상태가 된다 |
 
 핵심은 **Spot 전용 + 공격적 Consolidation (5분) + AMI 와일드카드**라는 조합이다. 각각은 합리적인 설정이지만, 결합되면 노드 교체 빈도가 높아질 수밖에 없는 구조다.
 
