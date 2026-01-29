@@ -324,7 +324,7 @@ LINE Engineering의 사례에서, 배포 직후 평균 응답 시간의 **약 6�
 
 Warm-up은 시작 시 1회만 필요한 작업이다. **StartupProbe가 Warm-up 완료까지 통과하지 않으면, Kubernetes는 Readiness/Liveness Probe를 시작하지 않고 트래픽도 보내지 않는다.**
 
-ReadinessProbe에 Warm-up을 넣는 방법도 있지만([LINE Engineering 사례](https://engineering.linecorp.com/ko/blog/apply-warm-up-in-spring-boot-and-kubernetes)), 다음과 같은 이유로 StartupProbe가 더 적합하다.
+ReadinessProbe에 Warm-up을 넣는 방법도 있지만([LINE Engineering 사례](https://engineering.linecorp.com/ko/blog/apply-warm-up-in-spring-boot-and-kubernetes)), 다음과 같은 이유로 StartupProbe가 더 적합하다고 생각한다.
 
 | 항목 | StartupProbe에 Warm-up | ReadinessProbe에 Warm-up |
 |------|----------------------|------------------------|
