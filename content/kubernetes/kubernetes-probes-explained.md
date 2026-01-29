@@ -320,9 +320,18 @@ JVM이 시작 직후 느린 이유는 3가지다.
 
 LINE Engineering의 사례에서, 배포 직후 평균 응답 시간의 **약 6배**에 달하는 지연이 발생했다고 한다.
 
-### 해결: ReadinessProbe + Warm-up 연동
+### 해결: StartupProbe에 Warm-up 포함
 
-핵심 아이디어는 간단하다. **Warm-up이 끝날 때까지 ReadinessProbe를 실패시키면 된다.** ReadinessProbe가 실패하면 Kubernetes는 해당 Pod에 트래픽을 보내지 않는다.
+Warm-up은 시작 시 1회만 필요한 작업이다. **StartupProbe가 Warm-up 완료까지 통과하지 않으면, Kubernetes는 Readiness/Liveness Probe를 시작하지 않고 트래픽도 보내지 않는다.**
+
+ReadinessProbe에 Warm-up을 넣는 방법도 있지만([LINE Engineering 사례](https://engineering.linecorp.com/ko/blog/apply-warm-up-in-spring-boot-and-kubernetes)), 다음과 같은 이유로 StartupProbe가 더 적합하다.
+
+| 항목 | StartupProbe에 Warm-up | ReadinessProbe에 Warm-up |
+|------|----------------------|------------------------|
+| 실행 횟수 | 성공하면 **끝** | Pod 수명 내내 **10초마다 반복** |
+| LivenessProbe 간섭 | 원천 차단 (StartupProbe 전에는 동작 안 함) | Health Group 분리 필요 |
+| Warm-up 실패 시 | failureThreshold 초과 → Pod 재시작 (자동 복구) | ReadinessProbe 영원히 실패 → 배포 멈춤 |
+| 설계 원칙 | 1회성 관심사 → 1회성 Probe | 1회성 관심사를 반복 Probe에 배치 |
 
 ```mermaid
 sequenceDiagram
@@ -333,18 +342,18 @@ sequenceDiagram
     Note over P: Pod 시작
 
     K->>P: StartupProbe
-    P-->>K: 성공 (Spring Boot 기동 완료)
+    P-->>K: 실패 (Spring Boot 기동 중)
 
-    Note over P: Warm-up 시작<br/>(클래스 로딩, JIT, 커넥션 초기화)
-
-    K->>P: ReadinessProbe
+    K->>P: StartupProbe
     P-->>K: 실패 (Warm-up 진행 중)
-    Note over K: 트래픽 보내지 않음
-
-    K->>P: ReadinessProbe
-    P-->>K: 실패 (Warm-up 진행 중)
+    Note over K: Readiness/Liveness 시작 안 함<br/>트래픽 보내지 않음
 
     Note over P: Warm-up 완료
+
+    K->>P: StartupProbe
+    P-->>K: 성공
+
+    Note over K,P: Readiness/Liveness 시작
 
     K->>P: ReadinessProbe
     P-->>K: 성공
@@ -356,7 +365,7 @@ sequenceDiagram
 
 ### Spring Boot Actuator 활용
 
-Spring Boot Actuator의 Health Group 기능으로 구현할 수 있다.
+StartupProbe 엔드포인트에 Warm-up 상태를 포함시킨다.
 
 ```java
 @Component
@@ -395,18 +404,39 @@ management:
   endpoint:
     health:
       group:
+        startup:
+          include: livenessState, warmup    # warm-up 포함
         readiness:
-          include: readinessState, warmup   # warm-up 포함
+          include: readinessState           # warm-up 제외 (이미 통과했으므로)
         liveness:
           include: livenessState            # warm-up 제외
 ```
 
-**Liveness 그룹에서는 warm-up을 제외**한다. Warm-up 중이라고 Pod를 재시작하면 안 되기 때문이다.
+StartupProbe에서 Warm-up을 포함하면 **Liveness/Readiness 그룹에서 warm-up을 제외하는 별도 설정이 필요 없다.** StartupProbe가 통과한 시점에 이미 Warm-up이 완료되었기 때문이다.
 
-| Probe | Health Group | warm-up 포함 | 이유 |
-|-------|-------------|:------------:|------|
-| ReadinessProbe | `readiness` | O | warm-up 전 트래픽 차단 |
-| LivenessProbe | `liveness` | X | warm-up 중 재시작 방지 |
+```yaml
+# Kubernetes Probe 설정
+startupProbe:
+  httpGet:
+    path: /actuator/health/startup    # warm-up 포함
+  periodSeconds: 10
+  failureThreshold: 30                # 최대 약 5분 대기
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness  # 트래픽 수신 가능 여부만
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness   # 앱 생존 여부만
+  periodSeconds: 10
+```
+
+각 Probe가 본래 역할에 맞게 분리된다:
+- **StartupProbe**: 앱 기동 + Warm-up 완료 확인 (1회)
+- **ReadinessProbe**: 트래픽 수신 가능 여부 (반복)
+- **LivenessProbe**: 앱 생존 여부 (반복)
 
 ### Warm-up 시 주의사항
 
@@ -430,22 +460,9 @@ flowchart LR
 
 **2. Warm-up 실패 처리**
 
-warm-up이 실패하면 ReadinessProbe가 영원히 실패한다. 배포가 멈춘다.
+warm-up이 실패하면 StartupProbe가 계속 실패한다. `failureThreshold`를 초과하면 Kubernetes가 Pod를 재시작한다. ReadinessProbe 방식과 달리 배포가 영원히 멈추지는 않지만, 재시작이 반복될 수 있으므로 warm-up에 타임아웃과 fallback을 설정하는 것이 좋다.
 
-- 타임아웃을 설정하고, 실패해도 warm-up 완료로 처리하는 fallback이 필요하다
-- warm-up 없이 느린 것이, 배포가 멈추는 것보다 낫다
-
-**3. 타임아웃 설정 조정**
-
-warm-up 시간만큼 StartupProbe의 대기 시간을 늘려야 한다.
-
-```yaml
-startupProbe:
-  httpGet:
-    path: /actuator/health/liveness   # warm-up 제외, 앱 기동만 확인
-  periodSeconds: 10
-  failureThreshold: 30    # 최대 약 5분 대기
-```
+- warm-up 없이 느린 것이, 재시작 루프에 빠지는 것보다 낫다
 
 ## 정리
 
@@ -457,7 +474,7 @@ startupProbe:
 - LivenessProbe는 **단순하게**, 타임아웃은 **여유있게**
 - 복잡한 체크는 ReadinessProbe에서
 - 3개 다 쓸 필요 없음, 상황에 맞게 선택
-- JVM 앱은 **StartupProbe 통과 ≠ 트래픽 준비 완료**, warm-up과 ReadinessProbe 연동을 고려
+- JVM 앱은 **Warm-up을 StartupProbe에 포함**시켜서, 시작 완료 전 트래픽 유입을 차단
 
 ## 참고
 
