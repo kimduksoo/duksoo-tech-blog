@@ -90,6 +90,20 @@ sequenceDiagram
 
 Rolling Update는 새 pod가 뜰 때 Redis가 살아있으니 Pool이 정상 초기화된다. 이번 케이스는 Redis pod와 앱 pod가 동시에 재생성되면서, 새 Pool이 초기화되는 시점에 Redis가 아직 안 떠있었던 게 문제였다.
 
+### 설정이 없으면 문제가 되는 시나리오
+
+앱이 계속 떠있는 상태에서 Redis만 재시작되는 경우도 동일한 문제가 발생한다.
+
+```
+1. Pool에 connection 8개 유지 중 (minIdle=8)
+2. Redis pod 재시작 → TCP 연결 끊김 (RST)
+3. Pool은 여전히 8개 connection 객체를 들고 있음
+4. 앱이 borrow → Pool이 끊긴 connection을 그대로 반환
+5. RedisSystemException
+```
+
+Pool은 TCP 레벨 상태를 실시간으로 감시하지 않는다. **누군가 PING을 보내봐야** 끊긴 걸 알 수 있다. `testOnBorrow`와 `testWhileIdle` 설정이 없으면, Redis failover, 네트워크 순단, 운영자의 Redis rolling restart 등 **Redis 측에서 연결이 끊기는 모든 상황**에서 같은 문제가 재현될 수 있다.
+
 ## 해결: testOnBorrow vs testWhileIdle
 
 Apache Commons Pool2는 두 가지 유효성 검증 옵션을 제공한다.
