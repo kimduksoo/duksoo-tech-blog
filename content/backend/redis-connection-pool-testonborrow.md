@@ -1,14 +1,14 @@
 ---
 title: "Redis Connection Pool이 끊긴 연결을 계속 내주는 이유"
 weight: 10
-description: "EKS 업그레이드 중 valkey 재시작으로 발생한 RedisSystemException. Lettuce auto-reconnect이 있는데 왜 복구가 안 됐는지, testOnBorrow와 testWhileIdle이 각각 어떤 역할을 하는지 정리했다."
+description: "EKS 업그레이드 중 Redis 재시작으로 발생한 RedisSystemException. Lettuce auto-reconnect이 있는데 왜 복구가 안 됐는지, testOnBorrow와 testWhileIdle이 각각 어떤 역할을 하는지 정리했다."
 tags: ["Redis", "Lettuce", "Connection-Pool", "Spring-Boot", "문제해결"]
 keywords: ["testOnBorrow", "testWhileIdle", "Redis Connection Pool", "Lettuce", "RedisSystemException", "Commons Pool2"]
 ---
 
 Connection Pool은 연결을 재사용해서 성능을 올려주지만, 풀 안의 연결이 죽었는지 살았는지는 별개 문제다.
 
-EKS 업그레이드 중 valkey(Redis) pod가 재시작되면서 Pool 안의 연결이 전부 끊겼는데, Pool이 유효성 검증 없이 끊긴 연결을 그대로 반환했다. Lettuce에 auto-reconnect이 있는데도 복구가 안 된 이유와, `testOnBorrow`/`testWhileIdle` 설정의 차이를 정리한다.
+EKS 업그레이드 중 Redis pod가 재시작되면서 Pool 안의 연결이 전부 끊겼는데, Pool이 유효성 검증 없이 끊긴 연결을 그대로 반환했다. Lettuce에 auto-reconnect이 있는데도 복구가 안 된 이유와, `testOnBorrow`/`testWhileIdle` 설정의 차이를 정리한다.
 
 ## 한눈에 보기
 
@@ -22,7 +22,7 @@ EKS 업그레이드 중 valkey(Redis) pod가 재시작되면서 Pool 안의 연�
 
 ## 문제 상황
 
-pnb-api는 Redis 연결을 Lettuce + Commons Pool2 기반 Connection Pool로 관리하고 있었다.
+order-api는 Redis 연결을 Lettuce + Commons Pool2 기반 Connection Pool로 관리하고 있었다.
 
 ```java
 GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
@@ -34,7 +34,7 @@ poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
 // testOnBorrow 미설정 (기본값 false)
 ```
 
-EKS 업그레이드 중 valkey pod가 nodeSelector 변경으로 강제 삭제 → 재생성되면서, Pool 안의 connection이 전부 끊겼다. 하지만 Pool은 이를 모른 채 끊긴 connection을 계속 반환했고, 모든 Redis 요청이 `RedisSystemException`으로 실패했다.
+EKS 업그레이드 중 Redis pod가 nodeSelector 변경으로 강제 삭제 → 재생성되면서, Pool 안의 connection이 전부 끊겼다. 하지만 Pool은 이를 모른 채 끊긴 connection을 계속 반환했고, 모든 Redis 요청이 `RedisSystemException`으로 실패했다.
 
 ## Lettuce auto-reconnect이 있는데 왜?
 
@@ -70,9 +70,9 @@ sequenceDiagram
 
 평소 배포는 rolling update라서 Redis 연결이 끊기는 시간이 수초다. 이번에는 EKS 업그레이드로 특수한 상황이 겹쳤다:
 
-1. valkey pod의 nodeSelector가 변경되면서 **강제 삭제 → 재생성** (약 18분 다운)
-2. pnb-api pod도 동시에 재생성되면서 Pool이 초기화됨
-3. Pool 초기화 시점에 valkey primary가 아직 미복구 상태
+1. Redis pod의 nodeSelector가 변경되면서 **강제 삭제 → 재생성** (약 18분 다운)
+2. order-api pod도 동시에 재생성되면서 Pool이 초기화됨
+3. Pool 초기화 시점에 Redis primary가 아직 미복구 상태
 4. `minIdle=8`에 의해 Pool이 8개 connection을 미리 생성 시도 → 전부 실패한 connection으로 채워짐
 
 일반적인 운영(개별 배포, rolling restart)에서는 발생하지 않는 조건이다.
