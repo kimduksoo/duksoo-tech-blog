@@ -77,6 +77,19 @@ sequenceDiagram
 
 일반적인 운영(개별 배포, rolling restart)에서는 발생하지 않는 조건이다.
 
+### Rolling Update vs 동시 재생성
+
+둘 다 TCP 연결은 끊긴다. 차이는 **새 Pool이 초기화될 때 Redis가 살아있느냐**다.
+
+| | Rolling Update (평소 배포) | EKS 업그레이드 (이번 케이스) |
+|--|--|--|
+| TCP 끊김 | 구 pod에서 끊김 | 양쪽 다 끊김 |
+| Redis 상태 | **계속 살아있음** | **같이 죽음** |
+| 새 Pool 초기화 | 정상 connection으로 채워짐 | 깨진 connection으로 채워짐 |
+| 결과 | 정상 | RedisSystemException |
+
+Rolling Update는 새 pod가 뜰 때 Redis가 살아있으니 Pool이 정상 초기화된다. 이번 케이스는 Redis pod와 앱 pod가 동시에 재생성되면서, 새 Pool이 초기화되는 시점에 Redis가 아직 안 떠있었던 게 문제였다.
+
 ## 해결: testOnBorrow vs testWhileIdle
 
 Apache Commons Pool2는 두 가지 유효성 검증 옵션을 제공한다.
@@ -142,6 +155,31 @@ sequenceDiagram
     Conn2->>Redis: 정상 전달
     Redis->>App: 응답
 ```
+
+## Pool이 새 connection을 만드는 과정
+
+`testOnBorrow`가 끊긴 connection을 폐기한 뒤, Pool이 새 connection을 만드는 과정은 다음과 같다.
+
+```
+1. Pool: "끊긴 connection 폐기, 새로 만들자"
+2. Pool → Lettuce: "Redis 서버로 connection 하나 만들어줘"
+3. Lettuce → OS: Socket.connect(redis-primary:6379)
+4. OS → DNS: "redis-primary IP가 뭐야?" → ClusterIP(Service IP) 반환
+5. OS → Redis: TCP 3-way handshake (SYN → SYN-ACK → ACK)
+6. Lettuce: TCP 연결 수립 완료 → Connection 객체 생성
+7. Pool: 이 Connection 객체를 Pool에 등록하고 앱에 반환
+```
+
+각 레이어가 connection 정보를 저장하는 위치:
+
+| 레이어 | 저장 위치 | 내용 |
+|--------|----------|------|
+| OS | 커널 소켓 테이블 | 소스IP:포트 ↔ 목적지IP:포트 |
+| JVM | `java.net.Socket` 객체 | OS 소켓의 파일 디스크립터(fd) 참조 |
+| Lettuce | `StatefulRedisConnection` 객체 | Socket을 감싼 Redis 전용 connection |
+| Pool | `GenericObjectPool` 내부 리스트 | connection 객체들을 idle/active로 관리 |
+
+이번 문제에서는 3번 단계에서 Redis가 아직 안 떠있어서 `Connection refused`가 발생했고, Pool은 이 실패한 객체를 그대로 보관했다. `testOnBorrow`가 있었다면 빌려줄 때 PING으로 걸러냈을 것이고, `testWhileIdle`이 있었다면 30초 안에 백그라운드에서 걸러냈을 것이다.
 
 ## 정리
 
