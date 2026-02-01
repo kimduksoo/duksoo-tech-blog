@@ -63,9 +63,9 @@ flowchart TB
     end
 
     subgraph S3[S3 Storage]
-        S3Loki[(ajdcar-dev-loki-storage)]
-        S3Mimir[(ajdcar-dev-mimir-storage)]
-        S3Tempo[(ajdcar-dev-tempo-storage)]
+        S3Loki[(app-dev-loki-storage)]
+        S3Mimir[(app-dev-mimir-storage)]
+        S3Tempo[(app-dev-tempo-storage)]
     end
 
     subgraph Slack[알림]
@@ -130,7 +130,7 @@ prometheus.scrape "kubelet_cadvisor" {
 prometheus.relabel "metrics_add_labels" {
   rule {
     source_labels = ["namespace"]
-    regex         = "ajdcar|observability"
+    regex         = "app|observability"
     action        = "keep"
   }
   forward_to = [prometheus.remote_write.mimir.receiver]
@@ -199,9 +199,9 @@ alertmanager:
 
 | 컴포넌트 | S3 버킷 | 보존 기간 |
 |---------|--------|----------|
-| Loki | ajdcar-dev-loki-storage | 7일 |
-| Tempo | ajdcar-dev-tempo-storage | 7일 |
-| Mimir | ajdcar-dev-mimir-storage | 7일 |
+| Loki | app-dev-loki-storage | 7일 |
+| Tempo | app-dev-tempo-storage | 7일 |
+| Mimir | app-dev-mimir-storage | 7일 |
 
 S3 Lifecycle Policy로 보존 기간을 관리한다.
 
