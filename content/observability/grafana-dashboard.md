@@ -134,7 +134,7 @@ dashboardProviders:
     apiVersion: 1
     providers:
       - name: 'default'
-        folder: 'ajdcar'
+        folder: 'app'
         type: file
         options:
           path: /var/lib/grafana/dashboards
@@ -155,7 +155,7 @@ dashboardProviders:
 ```
 observability/grafana/dashboard/
 ├── eks-infrastructure-dashboard.json
-├── ajdcar-api-dashboard.json
+├── app-api-dashboard.json
 └── observability-dashboard.json
 ```
 

@@ -38,7 +38,7 @@ flowchart LR
     CM -->|Alert Rules| Ruler
     Storage -->|메트릭 쿼리| Ruler
     Ruler -->|알림 발생| AM
-    AM -->|namespace: ajdcar| Ch1
+    AM -->|namespace: app| Ch1
     AM -->|namespace: observability| Ch2
     AM -->|알림 상태| AlertUI
 ```

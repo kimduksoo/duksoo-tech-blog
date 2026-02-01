@@ -26,7 +26,7 @@ dev에서 삽질한 덕분에 prod는 40분 만에 깔끔하게 끝냈다. 그 �
 ### Step 1: Control Plane 업그레이드
 
 ```bash
-aws eks update-cluster-version --name eks-blue --kubernetes-version 1.33
+aws eks update-cluster-version --name my-cluster --kubernetes-version 1.33
 ```
 
 약 8분 소요. 여기까지는 순조로웠다.
@@ -101,7 +101,7 @@ kubectl get pod test-pod2 -o wide
 
 ```bash
 aws eks update-nodegroup-version \
-  --cluster-name eks-blue \
+  --cluster-name my-cluster \
   --nodegroup-name on-demand \
   --kubernetes-version 1.33
 ```
@@ -120,13 +120,13 @@ Nodegroup can't be upgraded because maxSize (2) is equal to desiredSize (2).
 ```bash
 # maxSize 임시 증가
 aws eks update-nodegroup-config \
-  --cluster-name eks-blue \
+  --cluster-name my-cluster \
   --nodegroup-name on-demand \
   --scaling-config minSize=1,maxSize=4,desiredSize=2
 
 # 이후 업그레이드 재시도
 aws eks update-nodegroup-version \
-  --cluster-name eks-blue \
+  --cluster-name my-cluster \
   --nodegroup-name on-demand \
   --kubernetes-version 1.33
 ```
