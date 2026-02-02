@@ -11,9 +11,9 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 인프라 팀 업무의 상당수가 Slack에서 시작된다.
 
 - 비용 리포트를 만들고, 이상 징후를 분석해서 댓글을 단다
-- "서비스 추가해주세요" 같은 리소스 요청이 오면 Terraform과 GitOps로 반영한다
+- 파라미터 추가 요청이 오면 Terraform으로 반영한다
 - 배포 현황을 집계해서 주간 리포트를 만든다
-- 장애 알림이 뜨면 관련 지표를 모아서 공유한다
+- 모니터링 알림이 뜨면 관련 지표를 모아서 공유한다
 
 각각은 15~30분이지만, 매일 반복되면 하루 업무의 상당 부분을 차지한다. 더 큰 문제는 사람이 반복하면 놓치는 날이 생긴다는 것이다. 이상 징후를 못 잡고 넘어가면, 그 비용은 다음 달까지 누적된다.
 
@@ -68,8 +68,8 @@ flowchart TB
     style 외부도구 fill:none,stroke:none
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style 저장소 fill:#f5f5f5,stroke:#999999
-    style MCP fill:#fdf2e8,stroke:#d9964a
-    style CLI fill:#fde8e8,stroke:#d94a4a
+    style MCP fill:#ede8fd,stroke:#7a6dd9
+    style CLI fill:#e8f0fd,stroke:#4a6dd9
 ```
 
 MCP로 Slack, Jira, Datadog을 에이전트에 연결하고, AWS CLI는 SafeBash 필터를 통해 실행한다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다.
