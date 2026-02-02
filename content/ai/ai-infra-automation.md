@@ -30,6 +30,12 @@ flowchart TB
         Event[Slack 이벤트<br/>Socket Mode]
     end
 
+    subgraph MCP[MCP 서버]
+        S[Slack]
+        J[Jira]
+        D[Datadog]
+    end
+
     subgraph 코어
         subgraph 트리아지
             KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류]
@@ -40,12 +46,6 @@ flowchart TB
         Agent --> Log[실행 로그 · 트랜스크립트]
     end
 
-    subgraph MCP[MCP 서버]
-        S[Slack]
-        J[Jira]
-        D[Datadog]
-    end
-
     subgraph CLI[명령어 실행]
         AWS[AWS CLI]
         Local[로컬 명령어]
@@ -53,8 +53,8 @@ flowchart TB
 
     Cron --> Pre
     Event --> KW
-    Safe --> CLI
     Agent --> MCP
+    Safe --> CLI
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
     style 코어 fill:#e8f8e8,stroke:#5ba85b
