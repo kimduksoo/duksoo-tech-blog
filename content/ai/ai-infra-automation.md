@@ -24,7 +24,7 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 ## 시스템 개요
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph 트리거
         Cron[스케줄러<br/>APScheduler]
         Event[Slack 이벤트<br/>Socket Mode]
@@ -46,6 +46,10 @@ flowchart LR
     Cron --> Pre --> Agent
     Event --> Agent
     Agent --> Safe --> MCP
+
+    style 트리거 fill:#e8f4fd,stroke:#4a90d9
+    style 코어 fill:#e8f8e8,stroke:#5ba85b
+    style MCP fill:#fdf2e8,stroke:#d9964a
 ```
 
 MCP로 Slack, AWS CLI, Jira 등을 에이전트에 연결했다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다. 별도 API 래핑 없이 도구를 직접 사용할 수 있는 게 핵심이다.
