@@ -59,7 +59,7 @@ flowchart TB
 
     Cron --> Pre --> Agent
     Event --> KW --> Haiku --> Agent
-    CloudCheckr[CloudCheckr API] --> Pre
+    MSP 비용[MSP 비용 API] --> Pre
     Agent --> Safe --> CLI
     Agent --> MCP
     Agent --> 저장소
@@ -82,7 +82,7 @@ MCP로 Slack, Jira, Datadog을 에이전트에 연결하고, AWS CLI는 SafeBash
 
 ### 첫 실행: 숫자가 이상하다
 
-에이전트가 CloudCheckr API로 4개 계정의 비용을 조회하고, 전주 대비 변동을 분석해서 Slack에 리포트를 올리는 구조다. 돌려봤더니 리포트가 올라왔는데, 뭔가 이상했다.
+에이전트가 MSP 비용 API로 4개 계정의 비용을 조회하고, 전주 대비 변동을 분석해서 Slack에 리포트를 올리는 구조다. 돌려봤더니 리포트가 올라왔는데, 뭔가 이상했다.
 
 > **Human**: RI 비용이 아니고 S3 작업이 주 비용이라고? 이상한데?? 그리고 Glue는 항상 사용하던 건데 갑자기 사용한다고?? 결과 정확한지 크로스체크 작업 실행
 >
@@ -161,7 +161,7 @@ API는 다 호출했는데, 4개 계정의 동일 서비스 비용을 합산하�
 >
 > **AI**: 좋습니다! 계산 로직을 코드로 미리 처리하는 방식으로 구현하겠습니다.
 > ```
-> 1. CloudCheckr API 호출 → 8개 데이터 조회
+> 1. MSP 비용 API 호출 → 8개 데이터 조회
 > 2. Python 코드로 서비스별 합산 계산
 > 3. 계산된 결과를 프롬프트에 포함
 > 4. 에이전트는 계산된 데이터로 분석+리포트만 작성
