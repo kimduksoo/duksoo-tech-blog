@@ -59,6 +59,8 @@ flowchart TB
     Event --> KW
     Agent --> MCP
     Safe --> CLI
+    트리아지 ~~~ MCP
+    Safe ~~~ CLI
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
     style 코어 fill:#e8f8e8,stroke:#5ba85b
