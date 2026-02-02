@@ -25,17 +25,18 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 
 ```mermaid
 flowchart TB
-    subgraph 트리거
+    subgraph 입력
         direction LR
-        Cron[스케줄러<br/>APScheduler] ~~~ Event[Slack 이벤트<br/>Socket Mode]
+        subgraph 스케줄["스케줄 트리거"]
+            Cron[스케줄러<br/>APScheduler]
+            MSP[MSP 비용 API]
+        end
+        subgraph 이벤트["이벤트 트리거"]
+            Event[Slack 이벤트<br/>Socket Mode]
+            KW[키워드 필터]
+            Haiku[Haiku 3.5<br/>분류]
+        end
     end
-
-    subgraph 트리아지
-        direction LR
-        KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류]
-    end
-
-    MSP[MSP 비용 API]
 
     subgraph 코어
         direction TB
@@ -57,15 +58,15 @@ flowchart TB
     end
 
     Cron --> Pre
-    Event --> KW
     MSP --> Pre
-    Haiku --> Agent
+    Event --> KW --> Haiku --> Agent
     Safe --> CLI
     Agent --> MCP
     Agent --> 저장소
 
-    style 트리거 fill:#e8f4fd,stroke:#4a90d9
-    style 트리아지 fill:#f0e8fd,stroke:#7b5ba8
+    style 입력 fill:none,stroke:none
+    style 스케줄 fill:#e8f4fd,stroke:#4a90d9
+    style 이벤트 fill:#f0e8fd,stroke:#7b5ba8
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style 출력 fill:none,stroke:none
     style MCP fill:#fdf2e8,stroke:#d9964a
