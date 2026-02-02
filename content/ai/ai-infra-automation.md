@@ -166,7 +166,7 @@ API는 다 호출했는데, 4개 계정의 동일 서비스 비용을 합산하�
 > 4. 에이전트는 계산된 데이터로 분석+리포트만 작성
 > ```
 
-결정론적(Deterministic) 작업과 비결정론적(Non-deterministic) 작업을 분리한 것이다. 같은 입력이면 항상 같은 결과가 나와야 하는 API 호출과 산술 연산은 코드가 하고, LLM은 분석과 판단에만 집중한다.
+<span style="color:#1565c0; font-weight:bold">결정론적(Deterministic) 작업과 비결정론적(Non-deterministic) 작업을 분리</span>한 것이다. 같은 입력이면 항상 같은 결과가 나와야 하는 API 호출과 산술 연산은 코드가 하고, LLM은 분석과 판단에만 집중한다.
 
 아키텍처를 바꿨다.
 
