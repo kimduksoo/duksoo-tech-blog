@@ -43,7 +43,11 @@ flowchart TB
         Pre[Python 전처리<br/>API 호출 · 비용 합산] --> Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
         Haiku --> Agent
         Agent --> Safe[SafeBash 필터]
-        Agent --> Log[실행 로그 · 트랜스크립트]
+        subgraph 저장소
+            Log[실행 로그]
+            Transcript[트랜스크립트]
+        end
+        Agent --> 저장소
     end
 
     subgraph CLI[명령어 실행]
