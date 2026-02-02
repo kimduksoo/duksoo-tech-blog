@@ -68,8 +68,8 @@ flowchart TB
     style 외부도구 fill:none,stroke:none
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style 저장소 fill:#f5f5f5,stroke:#999999
-    style MCP fill:#ede8fd,stroke:#7a6dd9
-    style CLI fill:#e8f0fd,stroke:#4a6dd9
+    style MCP fill:#e8d5f5,stroke:#7b2fbe
+    style CLI fill:#e0f2f1,stroke:#26a69a
 ```
 
 MCP로 Slack, Jira, Datadog을 에이전트에 연결하고, AWS CLI는 SafeBash 필터를 통해 실행한다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다.
