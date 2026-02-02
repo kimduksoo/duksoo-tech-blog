@@ -30,10 +30,16 @@ flowchart TB
         Event[Slack 이벤트<br/>Socket Mode]
     end
 
-    subgraph MCP[MCP 서버]
-        S[Slack]
-        J[Jira]
-        D[Datadog]
+    subgraph 도구[" "]
+        subgraph MCP[MCP 서버]
+            S[Slack]
+            J[Jira]
+            D[Datadog]
+        end
+        subgraph CLI[명령어 실행]
+            AWS[AWS CLI]
+            Local[로컬 명령어]
+        end
     end
 
     subgraph 코어
@@ -50,22 +56,17 @@ flowchart TB
         Agent --> 저장소
     end
 
-    subgraph CLI[명령어 실행]
-        AWS[AWS CLI]
-        Local[로컬 명령어]
-    end
-
     Cron --> Pre
     Event --> KW
     Agent --> MCP
     Safe --> CLI
-    트리아지 ~~~ MCP
-    Safe ~~~ CLI
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
+    style 도구 fill:none,stroke:none
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style MCP fill:#fdf2e8,stroke:#d9964a
     style CLI fill:#fde8e8,stroke:#d94a4a
+    style 저장소 fill:#f5f5f5,stroke:#999999
 ```
 
 MCP로 Slack, Jira, Datadog을 에이전트에 연결하고, AWS CLI는 SafeBash 필터를 통해 실행한다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다.
