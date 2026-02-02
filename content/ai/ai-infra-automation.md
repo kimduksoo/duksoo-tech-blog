@@ -404,6 +404,7 @@ sequenceDiagram
 |------|------|
 | **Claude Code (CLI)** | 시스템 설계/구현. 위의 대화 로그가 그 과정이다 |
 | **Claude Opus 4.5** | 에이전트 실행 모델. 비용 분석, 리포트 작성 등 실제 업무 수행 |
+| **Claude Haiku 3.5** | 트리아지 분류 모델. 메시지 분류와 에이전트 라우팅 |
 | **Claude Agent SDK** | 에이전트 실행 프레임워크. 도구 사용, 멀티턴 관리 |
 | **MCP (Model Context Protocol)** | Slack 읽기/쓰기, AWS CLI 실행 등 외부 서비스 연동 |
 
