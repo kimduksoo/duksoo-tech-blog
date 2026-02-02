@@ -23,8 +23,13 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 
 ## 시스템 개요
 
-```
-Slack 채널 → 에이전트 → 외부 도구(AWS CLI, Jira, Datadog) → Slack 댓글
+```mermaid
+flowchart LR
+    Slack[Slack 채널] --> Agent[에이전트]
+    Agent --> AWS[AWS CLI]
+    Agent --> Jira[Jira]
+    Agent --> DD[Datadog]
+    Agent --> Reply[Slack 댓글]
 ```
 
 MCP로 Slack, AWS CLI, Jira 등을 에이전트에 연결했다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다. 별도 API 래핑 없이 도구를 직접 사용할 수 있는 게 핵심이다.
