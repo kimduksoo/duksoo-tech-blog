@@ -32,13 +32,15 @@ flowchart TB
 
     subgraph 트리아지
         KW[키워드 필터]
-        Haiku[Haiku LLM<br/>분류]
+        Haiku[Haiku 3.5<br/>분류]
     end
 
     subgraph 코어
         Pre[Python 전처리<br/>API 호출 · 비용 합산]
-        Agent[에이전트<br/>Claude Agent SDK]
+        ThreadState[스레드 상태 관리]
+        Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
         Safe[SafeBash 필터]
+        Approval[승인 게이트]
     end
 
     subgraph 저장소
@@ -61,7 +63,9 @@ flowchart TB
     Event --> KW --> Haiku --> Agent
     MSP[MSP 비용 API] --> Pre
     Agent --> Safe --> CLI
+    Agent --> Approval --> CLI
     Agent --> MCP
+    Agent --> ThreadState
     Agent --> 저장소
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
