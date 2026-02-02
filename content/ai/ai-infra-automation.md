@@ -49,8 +49,12 @@ flowchart TB
 
     Cron --> Pre --> Agent
     Event --> KW --> Haiku --> Agent
-    Agent --> Safe --> AWS[AWS CLI]
-    Safe --> Local[로컬 명령어]
+    subgraph CLI[명령어 실행]
+        AWS[AWS CLI]
+        Local[로컬 명령어]
+    end
+
+    Agent --> Safe --> CLI
     Agent --> MCP
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
