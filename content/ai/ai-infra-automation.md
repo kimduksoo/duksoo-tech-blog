@@ -59,7 +59,7 @@ flowchart TB
 
     Cron --> Pre --> Agent
     Event --> KW --> Haiku --> Agent
-    MSP 비용[MSP 비용 API] --> Pre
+    MSP[MSP 비용 API] --> Pre
     Agent --> Safe --> CLI
     Agent --> MCP
     Agent --> 저장소
