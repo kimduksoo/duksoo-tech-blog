@@ -306,7 +306,7 @@ Python이 API를 호출하고 합산한다. 에이전트는 계산된 데이터�
 
 이 필터를 신뢰하기 전에, AI에게 공격을 시켰다. 안전장치를 만든 AI가 아닌 다른 세션에서, "이 필터를 우회할 수 있는 방법을 찾아라"는 <span style="color:#1565c0; font-weight:bold">Red Teaming</span>을 수행한 것이다.
 
-> **Human**: 지금 코드 봤을 때 더 개선해야 할 거 있나?
+> **Human**: SafeBash 필터를 우회할 수 있는 방법을 찾아라
 >
 > **AI** *(14개 파일 전체 리뷰 후)*: Critical 6건, High 6건, Medium 4건 발견.
 > | # | 이슈 | 위치 | 설명 |
