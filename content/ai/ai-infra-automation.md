@@ -26,6 +26,7 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 ```mermaid
 flowchart LR
     Slack[Slack 채널] --> Agent[에이전트]
+    Code[Python<br/>사전 계산] --> Agent
     Agent --> AWS[AWS CLI]
     Agent --> Jira[Jira]
     Agent --> DD[Datadog]
