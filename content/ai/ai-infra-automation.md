@@ -348,6 +348,13 @@ flowchart LR
     KW -->|매칭| Haiku{Haiku 3.5 분류}
     Haiku -->|대화/잡담| Drop2[무시]
     Haiku -->|인프라 요청| Agent[에이전트 실행]
+
+    style Msg fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style KW fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    style Haiku fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    style Drop1 fill:#f3f4f6,stroke:#9ca3af,color:#4b5563
+    style Drop2 fill:#f3f4f6,stroke:#9ca3af,color:#4b5563
+    style Agent fill:#d1fae5,stroke:#10b981,color:#064e3b
 ```
 
 1. **키워드 필터** (결정론적): "파라미터", "비용", "배포" 등 사전 정의된 키워드로 1차 필터링. 매칭되지 않는 메시지는 즉시 무시한다.
