@@ -177,6 +177,10 @@ API는 다 호출했는데, 4개 계정의 동일 서비스 비용을 합산하�
 
 Python이 API를 호출하고 합산을 한다. 에이전트는 이미 계산된 정확한 데이터를 받아서 분석과 리포트만 쓴다.
 
+<div style="text-align: center;">
+<img src="/images/cost-report-automation/weekly-report.png" alt="주간 비용 리포트 Slack 화면" style="max-width: 700px; width: 100%; border-radius: 8px;">
+</div>
+
 | 항목 | 변경 전 | 변경 후 |
 |------|--------|--------|
 | 실행 시간 | 4분 | 27초 |
@@ -184,8 +188,6 @@ Python이 API를 호출하고 합산을 한다. 에이전트는 이미 계산된
 | 데이터 정확성 | 할루시네이션 | 100% 정확 |
 
 <span style="color:#1565c0; font-weight:bold; font-size:1.1em">계산은 코드가, 판단은 AI가.</span> 이게 이 프로젝트에서 얻은 가장 큰 교훈이다.
-
-<img src="/images/cost-report-automation/weekly-report.png" alt="주간 비용 리포트 Slack 화면" style="max-width: 700px; width: 100%; border-radius: 8px;">
 
 ### 확장: 주간 비용 리포트
 
