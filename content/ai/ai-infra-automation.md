@@ -30,8 +30,6 @@ flowchart TB
         Event[Slack 이벤트<br/>Socket Mode]
     end
 
-    MSP[MSP 비용 API]
-
     subgraph 트리아지
         KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류]
     end
@@ -58,7 +56,6 @@ flowchart TB
     end
 
     Cron --> Pre
-    MSP --> Pre
     Event --> KW
     Haiku --> Agent
     Safe --> CLI
