@@ -41,29 +41,38 @@ flowchart TB
         Safe[SafeBash 필터]
     end
 
+    subgraph 저장소
+        Log[실행 로그]
+        Transcript[트랜스크립트]
+    end
+
     subgraph MCP[MCP 서버]
         S[Slack]
         J[Jira]
         D[Datadog]
     end
 
-    Cron --> Pre --> Agent
-    Event --> KW --> Haiku --> Agent
     subgraph CLI[명령어 실행]
         AWS[AWS CLI]
         Local[로컬 명령어]
     end
 
+    Cron --> Pre --> Agent
+    Event --> KW --> Haiku --> Agent
+    CloudCheckr[CloudCheckr API] --> Pre
     Agent --> Safe --> CLI
     Agent --> MCP
+    Agent --> 저장소
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
     style 트리아지 fill:#f0e8fd,stroke:#7b5ba8
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style MCP fill:#fdf2e8,stroke:#d9964a
+    style CLI fill:#fde8e8,stroke:#d94a4a
+    style 저장소 fill:#f5f5f5,stroke:#999999
 ```
 
-MCP로 Slack, AWS CLI, Jira 등을 에이전트에 연결했다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다. 별도 API 래핑 없이 도구를 직접 사용할 수 있는 게 핵심이다.
+MCP로 Slack, Jira, Datadog을 에이전트에 연결하고, AWS CLI는 SafeBash 필터를 통해 실행한다. 에이전트가 Slack에서 메시지를 읽고, 필요한 데이터를 조회하고, 분석 결과를 다시 Slack 스레드에 쓴다.
 
 첫 번째 에이전트로 **주간 비용 분석**을 만들었다. 가장 반복적이고, 판단이 필요하며, 자동화 효과가 클 것 같았다.
 
