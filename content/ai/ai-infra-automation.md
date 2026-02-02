@@ -37,10 +37,8 @@ flowchart TB
 
     subgraph 코어
         Pre[Python 전처리<br/>API 호출 · 비용 합산]
-        ThreadState[스레드 상태 관리]
         Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
         Safe[SafeBash 필터]
-        Approval[승인 게이트]
     end
 
     subgraph 저장소
@@ -63,9 +61,7 @@ flowchart TB
     Event --> KW --> Haiku --> Agent
     MSP[MSP 비용 API] --> Pre
     Agent --> Safe --> CLI
-    Agent --> Approval --> CLI
     Agent --> MCP
-    Agent --> ThreadState
     Agent --> 저장소
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
@@ -226,6 +222,63 @@ Python이 API를 호출하고 합산을 한다. 에이전트는 이미 계산된
 ### 테스트 채널 선행 운영
 
 프로덕션 채널에 바로 연결하지 않고, 테스트 채널에서 2주간 먼저 운영했다. 모든 에이전트 실행은 JSON 트랜스크립트로 기록되어, 어떤 명령을 실행했고 어떤 판단을 했는지 사후에 전수 검토할 수 있다.
+
+---
+
+## 스레드 상태 관리
+
+에이전트가 Slack 스레드에서 멀티턴 대화를 하려면, "이 스레드는 어떤 에이전트가 담당 중인지" 추적해야 한다. ThreadStateManager가 이 역할을 한다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> conversation: 스레드 생성
+    conversation --> conversation: 사용자 추가 질문
+    conversation --> awaiting_approval: 에이전트가 변경 작업 요청
+    awaiting_approval --> approved: 승인권자 "승인"
+    awaiting_approval --> completed: 승인권자 "거부"
+    approved --> completed: 작업 실행 완료
+    conversation --> completed: 대화 종료
+    conversation --> [*]: 2시간 비활성 → 자동 만료
+
+    style conversation fill:#e8f8e8,stroke:#5ba85b
+    style awaiting_approval fill:#fdf2e8,stroke:#d9964a
+    style approved fill:#e8f4fd,stroke:#4a90d9
+    style completed fill:#f5f5f5,stroke:#999999
+```
+
+스레드별로 상태(`conversation`, `awaiting_approval`, `approved`, `completed`)를 추적하고, JSON 파일에 영속화한다. 데몬이 재시작돼도 진행 중이던 대화를 이어갈 수 있다. 2시간 비활성이면 자동으로 만료된다.
+
+---
+
+## 승인 게이트
+
+에이전트가 읽기 전용 분석을 넘어 변경 작업(Parameter Store 등록, K8s 서비스 생성 등)을 수행하려면, 사람의 명시적 승인이 필요하다.
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자
+    participant Agent as 에이전트
+    participant Gate as 승인 게이트
+    participant Approver as 승인권자
+
+    User->>Agent: "파라미터 추가해줘"
+    Agent->>Agent: 분석 후 실행 계획 수립
+    Agent->>Gate: [APPROVAL_REQUIRED] 블록 출력
+    Gate->>Gate: 스레드 상태 → awaiting_approval
+    Gate->>Approver: Slack 스레드에 계획 게시
+    Approver->>Gate: "승인"
+    Gate->>Gate: 승인권자 검증 (user_id 확인)
+    Gate->>Agent: 승인된 계획으로 재실행
+    Agent->>User: 실행 결과 보고
+```
+
+동작 방식:
+1. 에이전트가 변경이 필요하다고 판단하면 `[APPROVAL_REQUIRED]` 블록을 출력한다
+2. 시스템이 이를 감지하고 스레드 상태를 `awaiting_approval`로 전환한다
+3. 지정된 승인권자만 "승인" 또는 "거부"를 입력할 수 있다
+4. 승인되면 에이전트가 이전에 수립한 계획대로 작업을 실행한다
+
+읽기 전용 작업(비용 분석, 리포트 작성 등)은 승인 없이 바로 실행된다. 승인 게이트는 변경 작업에만 적용된다.
 
 ---
 
