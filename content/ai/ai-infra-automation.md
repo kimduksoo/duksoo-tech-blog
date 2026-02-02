@@ -277,6 +277,10 @@ Python이 API를 호출하고 합산한다. 에이전트는 계산된 데이터�
 
 ### 결과: 32회 반복, 3배로 성장한 프롬프트
 
+<div style="text-align: center;">
+<img src="/images/ai-infra-automation/param-store-slack-thread.png" alt="파라미터 스토어 등록 Slack 스레드" style="max-width: 500px; width: 100%; border-radius: 8px;">
+</div>
+
 | 항목 | v1 (최초) | v4 (최종) |
 |------|----------|----------|
 | 프롬프트 길이 | 3,328자 | 10,076자 |
