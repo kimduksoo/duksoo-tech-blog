@@ -30,6 +30,11 @@ flowchart TB
         Event[Slack 이벤트<br/>Socket Mode]
     end
 
+    subgraph 트리아지
+        KW[키워드 필터]
+        Haiku[Haiku LLM<br/>분류]
+    end
+
     subgraph 코어
         Pre[Python 전처리<br/>API 호출 · 비용 합산]
         Agent[에이전트<br/>Claude Agent SDK]
@@ -38,16 +43,17 @@ flowchart TB
 
     subgraph MCP[MCP 서버]
         S[Slack]
-        A[AWS CLI]
         J[Jira]
         D[Datadog]
     end
 
     Cron --> Pre --> Agent
-    Event --> Agent
-    Agent --> Safe --> MCP
+    Event --> KW --> Haiku --> Agent
+    Agent --> Safe --> AWS[AWS CLI]
+    Agent --> MCP
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
+    style 트리아지 fill:#f0e8fd,stroke:#7b5ba8
     style 코어 fill:#e8f8e8,stroke:#5ba85b
     style MCP fill:#fdf2e8,stroke:#d9964a
 ```
