@@ -24,58 +24,50 @@ keywords: ["AI 인프라 자동화", "Claude Agent SDK", "MCP", "Slack 자동화
 ## 시스템 개요
 
 ```mermaid
-flowchart LR
-    subgraph Input[" "]
-        direction TB
-        subgraph 트리거
-            Cron[스케줄러<br/>APScheduler]
-            Event[Slack 이벤트<br/>Socket Mode]
-        end
-        subgraph 트리아지
-            KW[키워드 필터]
-            Haiku[Haiku 3.5<br/>분류]
-        end
-        MSP[MSP 비용 API]
+flowchart TB
+    subgraph 트리거
+        direction LR
+        Cron[스케줄러<br/>APScheduler] ~~~ Event[Slack 이벤트<br/>Socket Mode]
     end
 
-    subgraph Core[" "]
-        direction TB
-        Pre[Python 전처리<br/>API 호출 · 비용 합산]
-        Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
-        Safe[SafeBash 필터]
+    subgraph 트리아지
+        direction LR
+        KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류]
     end
 
-    subgraph Output[" "]
+    MSP[MSP 비용 API]
+
+    subgraph 코어
         direction TB
+        Pre[Python 전처리<br/>API 호출 · 비용 합산] --> Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
+        Agent --> Safe[SafeBash 필터]
+    end
+
+    subgraph 출력
+        direction LR
         subgraph MCP[MCP 서버]
-            S[Slack]
-            J[Jira]
-            D[Datadog]
+            S[Slack] ~~~ J[Jira] ~~~ D[Datadog]
         end
         subgraph CLI[명령어 실행]
-            AWS[AWS CLI]
-            Local[로컬 명령어]
+            AWS[AWS CLI] ~~~ Local[로컬 명령어]
         end
         subgraph 저장소
-            Log[실행 로그]
-            Transcript[트랜스크립트]
+            Log[실행 로그] ~~~ Transcript[트랜스크립트]
         end
     end
 
     Cron --> Pre
-    Event --> KW --> Haiku
+    Event --> KW
     MSP --> Pre
-    Pre --> Agent
     Haiku --> Agent
+    Safe --> CLI
     Agent --> MCP
-    Agent --> Safe --> CLI
     Agent --> 저장소
 
-    style Input fill:none,stroke:none
-    style Core fill:#e8f8e8,stroke:#5ba85b
-    style Output fill:none,stroke:none
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
     style 트리아지 fill:#f0e8fd,stroke:#7b5ba8
+    style 코어 fill:#e8f8e8,stroke:#5ba85b
+    style 출력 fill:none,stroke:none
     style MCP fill:#fdf2e8,stroke:#d9964a
     style CLI fill:#fde8e8,stroke:#d94a4a
     style 저장소 fill:#f5f5f5,stroke:#999999
