@@ -452,6 +452,6 @@ sequenceDiagram
 ### 모델의 한계
 
 - **비용**: 입력 토큰 $5.00/M으로, GPT-5.2($1.75/M)·Gemini 3 Pro($2.00/M) 대비 2.5~3배 비싸다
-- **속도**: 프론티어 모델 중 느린 편이다. Sonnet 4.5 대비 체감 3~10배, Gemini 3 Pro·GPT-5.2보다도 뒤처진다
+- **속도**: 프론티어 모델 중 느린 편이다. Sonnet 4.5 대비 체감 3~10배, Gemini 3 Pro·GPT-5.2 대비로도 느린 편이다
 - **벤더 락인**: LLM마다 강점이 다르지만(코딩은 Claude, 추론은 Gemini·GPT, 속도는 Gemini Flash), Claude Agent SDK 기반이라 모델 선택의 폭이 좁다. 다른 LLM으로 전환하려면 프레임워크 자체를 교체해야 한다
 
