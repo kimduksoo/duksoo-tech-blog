@@ -118,7 +118,7 @@ flowchart LR
 
 ### 1. 비용 모니터링 = 이상 탐지
 
-이번 사건에서 문제를 잡아준 건 Datadog도 CloudWatch Alarm도 아니었다. **주간 비용 리포트**였다.
+이번 사건에서 문제를 잡아준 건 Datadog도 CloudWatch Alarm도 아니었다. [자동화해둔 주간 비용 리포트]({{< relref "/ai/cost-report-automation" >}})였다.
 
 서비스 입장에서는 정상이었다. 에러 로그도 없고, 응답 시간도 문제없었다. 수집 솔루션이 S3를 아무리 많이 읽어도 서비스에 영향을 주지 않기 때문이다.
 
