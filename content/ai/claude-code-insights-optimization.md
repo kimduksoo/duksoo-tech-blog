@@ -309,7 +309,7 @@ flowchart LR
 
     subgraph 해결["구현한 것"]
         D[CLAUDE.md<br/>서버 관리 5단계]
-        E[/restart 스킬]
+        E["/restart 스킬"]
         F[CLAUDE.md<br/>분석/작성 기준]
         G[게시 전 검증<br/>체크리스트]
         H[SSO 사전 점검]
