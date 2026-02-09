@@ -1,5 +1,5 @@
 ---
-title: "AI 에이전트로 Slack 인프라 업무 자동화하기"
+title: "AI 인프라 자동화 #1 에이전트가 일을 할 수 있는가"
 weight: 1
 description: "Slack으로 들어오는 인프라 반복 업무를 Claude Agent SDK와 MCP로 자동화한 이야기. 첫 에이전트에서 할루시네이션을 만나고, 실패를 반복하며 프로덕션에 올린 과정."
 tags: ["AI", "Claude", "Agent SDK", "MCP", "인프라자동화", "Slack"]
