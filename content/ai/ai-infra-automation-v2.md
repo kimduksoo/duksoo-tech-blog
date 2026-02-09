@@ -89,43 +89,68 @@ flowchart TB
 
 ---
 
-## 첫 번째: 채널 기반 라우팅
+## 첫 번째: 진입장벽 낮추기
+
+### 사용자에게 달라진 것
+
+결과적으로 에이전트가 하는 일은 같다. NAT IP를 조회하고, 파라미터를 등록하고, 서비스 상태를 확인한다. 달라진 건 <span style="color:#1565c0; font-weight:bold">사용자가 해야 하는 것</span>이다.
+
+| | Before | After |
+|---|---|---|
+| 요청 방법 | @멘션 + 키워드 포함해서 글쓰기 | 채널에 그냥 글쓰기 |
+| 반응 조건 | 키워드가 매칭되어야 반응 | 채널에 등록되어 있으면 반응 |
+| 형식 제약 | "NAT", "파라미터" 등 특정 단어 필요 | 자연어 그대로 |
+| 에이전트 선택 | Haiku가 분류해서 결정 | 채널이 결정 (고정) |
+
+예를 들어 기존에는 "서버 NAT IP 알려주세요"라고 정확히 써야 키워드 필터를 통과했다. 지금은 #t_인프라 채널에 "외부에서 우리 서버 접근하려는데 IP가 뭐야?"라고 써도 에이전트가 반응한다.
 
 ### 채널이 곧 의도다
 
-#t_인프라 채널에 글을 쓰는 사람은 이미 인프라 관련 이야기를 하려는 의도가 있다. 굳이 키워드로 분류할 필요가 없다.
+핵심 인사이트는 단순하다. #t_인프라 채널에 글을 쓰는 사람은 이미 인프라 관련 이야기를 하려는 의도가 있다. 굳이 키워드로 분류할 필요가 없다.
 
-1편에서 <span style="color:#1565c0; font-weight:bold">"계산은 코드가 해야 한다"</span>는 교훈을 얻었다면, 이번에 얻은 교훈은 <span style="color:#1565c0; font-weight:bold">"라우팅은 구조가 해야 한다"</span>는 것이다.
-
-키워드 필터와 Haiku 분류기가 하던 일을 채널 구조 자체가 대신한다.
+1편에서 <span style="color:#1565c0; font-weight:bold">"계산은 코드가 해야 한다"</span>는 교훈을 얻었다면, 이번에 얻은 교훈은 <span style="color:#1565c0; font-weight:bold">"라우팅은 구조가 해야 한다"</span>는 것이다. 키워드 필터와 Haiku 분류기가 하던 일을 채널 구조 자체가 대신한다.
 
 ```mermaid
-flowchart LR
-    Msg[Slack 메시지] --> CH{채널 등록?}
-    CH -->|미등록| Drop[무시]
-    CH -->|등록| Type{멘션?}
-    Type -->|@멘션| Agent[채널 전용 에이전트]
-    Type -->|일반| GK{Haiku 게이트키퍼}
-    GK -->|처리| Agent
-    GK -->|무시| Drop2[무시]
+flowchart TB
+    subgraph Before[기존: 키워드 라우팅]
+        Msg1[메시지] --> KW{키워드 필터}
+        KW -->|매칭 없음| Drop1[무시]
+        KW -->|매칭| Haiku{Haiku 분류}
+        Haiku -->|잡담| Drop2[무시]
+        Haiku -->|요청| Select{에이전트 선택}
+        Select --> A1[infra_request]
+        Select --> A2[param_store]
+        Select --> A3[k8s_service]
+    end
 
-    style Msg fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style CH fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style Type fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style GK fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style Agent fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style Drop fill:#f3f4f6,stroke:#9ca3af,color:#4b5563
-    style Drop2 fill:#f3f4f6,stroke:#9ca3af,color:#4b5563
+    subgraph After[현재: 채널 라우팅]
+        Msg2[메시지] --> CH{채널 등록?}
+        CH -->|미등록| Drop3[무시]
+        CH -->|등록| GK{Haiku 게이트키퍼}
+        GK -->|무시| Drop4[무시]
+        GK -->|처리| Agent[채널 전용 에이전트]
+    end
+
+    style Before fill:#fff5f5,stroke:#f87171
+    style After fill:#f0fdf4,stroke:#4ade80
 ```
 
-@멘션은 게이트키퍼를 거치지 않고 바로 실행된다. 명시적으로 에이전트를 호출했으니 판단할 필요가 없다. 일반 메시지만 Haiku가 "이걸 처리해야 하는가?"를 판단한다.
+Haiku의 역할이 바뀌었다. 이전에는 "분류 + 에이전트 선택"을 했지만, 지금은 <span style="color:#1565c0; font-weight:bold">"이 메시지를 처리해야 하는가?"</span> 한 가지만 판단한다. 에이전트 선택은 채널이 이미 결정했기 때문이다.
 
-### 설정 변화
+```
+"서버 NAT IP 알려주세요" → 처리 (인프라 요청)
+"점심 뭐 먹지"           → 무시 (일상 대화)
+"참고로 공유합니다"       → 무시 (FYI)
+```
 
-기존에는 키워드 목록, 트리아지 규칙, 유저그룹 패턴 등 여러 설정이 흩어져 있었다.
+@멘션의 경우 게이트키퍼를 거치지 않고 바로 실행된다. 명시적으로 에이전트를 호출했으니 판단할 필요가 없다.
+
+### 개발자에게 달라진 것
+
+채널을 추가하는 데 필요한 설정이 바뀌었다.
 
 ```yaml
-# Before: 흩어진 설정들
+# Before: 3개 파일에 흩어진 설정
 mention_triggers:
   keywords: ["NAT", "파라미터", "배포", ...]
   haiku_prompt: "분류하고 에이전트를 선택하세요..."
@@ -138,10 +163,8 @@ usergroup_triggers:
   patterns: [...]
 ```
 
-지금은 이것이 전부다.
-
 ```yaml
-# After: 채널 기반 설정
+# After: yaml 3줄로 채널 추가
 channel_triggers:
   enabled: true
   haiku_model: "claude-haiku-4-5-20251001"
@@ -155,35 +178,6 @@ channel_triggers:
 ```
 
 채널을 추가하고 싶으면 `channels` 배열에 항목 하나를 추가하면 된다. 코드 수정이 필요 없다.
-
-### Haiku의 역할 변화
-
-Haiku의 역할이 축소됐다. 이전에는 메시지를 분류하고 에이전트까지 선택했지만, 이제는 <span style="color:#1565c0; font-weight:bold">"이 메시지를 처리해야 하는가?"</span> 한 가지만 판단한다.
-
-```
-"서버 NAT IP 알려주세요" → 처리 (인프라 요청)
-"점심 뭐 먹지"           → 무시 (일상 대화)
-"참고로 공유합니다"       → 무시 (FYI)
-```
-
-에이전트 선택이 사라진 이유는 채널이 이미 에이전트를 결정하기 때문이다. #t_인프라에 올라온 메시지는 infra_request 에이전트가 처리한다. Haiku가 고민할 필요가 없다.
-
-### 삭제한 코드, 추가한 코드
-
-| 삭제 | 역할 |
-|------|------|
-| `TriageClassifier` | 키워드 매칭 + Haiku 2단계 분류 |
-| `UsergroupJudge` | 유저그룹 멘션 감지 + 판단 |
-| `_route_to_agent()` | 키워드 기반 에이전트 라우팅 |
-| `_try_triage()` | 트리아지 채널 처리 |
-| `_detect_usergroup_mention()` | 유저그룹 패턴 감지 |
-
-| 추가 | 역할 |
-|------|------|
-| `ChannelGatekeeper` | 처리 여부 판단 (단일 클래스) |
-| `_try_channel_route()` | 채널 라우팅 (단일 메서드) |
-
-5개 삭제하고 2개 추가했다. 코드가 줄었고, 각 구성요소의 책임이 명확해졌다.
 
 ### 승인 게이트 변경
 
@@ -206,15 +200,13 @@ sequenceDiagram
     A->>A: 작업 실행
     A->>J: 결과 댓글
     A->>U: 완료 보고
-
-    %%{init: {'theme': 'default'}}%%
 ```
 
 조회(R)는 승인 없이 바로 실행되고, 생성/수정/삭제(CUD)만 승인을 거친다.
 
 ---
 
-## 두 번째: 웹 콘솔
+## 두 번째: 투명성 확보
 
 ### Slack만으로는 부족한 이유
 
@@ -306,44 +298,6 @@ stateDiagram-v2
 ```
 
 요청이 들어오면 즉시 Jira 티켓이 생성되고, 웹 콘솔에 카드가 추가된다. 에이전트 실행, 승인 대기, 추가 대화, 완료까지 전체 흐름이 웹에서 추적된다. Slack 채널에 없어도 "지금 어떤 요청이 처리되고 있는지"를 알 수 있다.
-
----
-
-## 변경 전후 비교
-
-```mermaid
-flowchart TB
-    subgraph Before[기존 구조]
-        direction TB
-        E1[Slack 이벤트] --> KW1[키워드 필터]
-        KW1 --> H1[Haiku<br/>분류 + 선택]
-        H1 --> AG1[infra_request]
-        H1 --> AG2[param_store]
-        H1 --> AG3[k8s_service]
-    end
-
-    subgraph After[현재 구조]
-        direction TB
-        E2[Slack 이벤트] --> CH2{채널 매핑}
-        CH2 --> GK2[Haiku<br/>게이트키퍼]
-        GK2 --> AG4[채널 전용 에이전트]
-        AG4 --> J2[Jira 연동]
-        AG4 --> WS2[웹 콘솔 동기화]
-    end
-
-    style Before fill:#fff5f5,stroke:#f87171
-    style After fill:#f0fdf4,stroke:#4ade80
-```
-
-| | Before | After |
-|---|---|---|
-| 메시지 라우팅 | 4가지 트리거, 키워드 필터 | 채널 1:1 매핑 |
-| Haiku 역할 | 분류 + 에이전트 선택 | 게이트키퍼 (처리 여부만) |
-| 에이전트 | 기능별 3~4개 | 채널당 1개 |
-| 승인 | @infra 그룹 | 개별 승인자 멘션 |
-| Jira | 수동 | 요청 시 즉시 자동 생성 |
-| 가시성 | Slack 스레드만 | Slack + 웹 콘솔 |
-| 채널 추가 | 3개 파일 수정 | yaml 3줄 추가 |
 
 ---
 
