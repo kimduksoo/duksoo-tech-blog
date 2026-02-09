@@ -8,11 +8,7 @@ keywords: ["AI 인프라 자동화", "채널 기반 라우팅", "Haiku 게이트
 
 [1편](/ai/ai-infra-automation/)에서는 Claude Agent SDK와 MCP로 Slack 기반 인프라 자동화를 만들었다. 비용 분석, 파라미터 스토어 등록 같은 반복 업무를 AI 에이전트에 맡기는 구조였다.
 
-잘 돌아갔다. 초기에는 에이전트 하나, 채널 하나로 충분했다.
-
-그런데 <span style="color:#1565c0; font-weight:bold">기능을 추가할 때마다 라우팅 규칙이 복잡해졌다.</span>
-
-키워드를 등록하고, 동의어를 챙기고, 실제 메시지로 매칭이 되는지 테스트하는 과정이 반복됐다. 새 기능 하나를 추가하는 데 코드보다 라우팅 규칙을 다듬는 시간이 더 걸렸다.
+처음에는 잘 돌아갔다. 그런데 <span style="color:#1565c0; font-weight:bold">기능을 추가할 때마다 라우팅 규칙이 복잡해졌다.</span> 키워드를 등록하고, 동의어를 챙기고, 실제 메시지로 매칭이 되는지 테스트하는 과정이 반복됐다. 새 기능 하나를 추가하는 데 코드보다 라우팅 규칙을 다듬는 시간이 더 걸렸다.
 
 ---
 
@@ -27,37 +23,46 @@ flowchart TB
         Event[Slack 이벤트<br/>Socket Mode]
     end
 
-    subgraph 코어
-        subgraph 트리아지
-            KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류 + 에이전트 선택]
+    subgraph 시스템[" "]
+        direction LR
+        subgraph 외부도구[" "]
+            subgraph MCP[MCP 서버]
+                S[Slack]
+                J[Jira]
+                D[Datadog]
+            end
+            subgraph CLI[명령어 실행]
+                AWS[AWS CLI]
+                Local[로컬 명령어]
+            end
         end
-        Pre[Python 전처리] --> Agent[에이전트<br/>Claude Agent SDK]
-        Haiku --> Agent
-    end
-
-    subgraph 에이전트들
-        A1[infra_request]
-        A2[param_store]
-        A3[k8s_service]
-        A4[general_chat]
-    end
-
-    subgraph 외부도구[" "]
-        MCP[MCP 서버<br/>Slack · Jira · Datadog]
-        CLI[AWS CLI · kubectl]
+        subgraph 코어
+            subgraph 트리아지
+                KW[키워드 필터] --> Haiku[Haiku 3.5<br/>분류]
+            end
+            Pre[Python 전처리<br/>API 호출 · 비용 합산] --> Agent[에이전트<br/>Claude Agent SDK<br/>Opus 4.5]
+            Haiku --> Agent
+            subgraph 저장소
+                Log[실행 로그]
+                Transcript[트랜스크립트]
+            end
+            Agent --> 저장소
+            Agent --> Safe[SafeBash 필터]
+        end
     end
 
     Cron --> Pre
     Event --> KW
-    Agent --> 에이전트들
     Agent --> MCP
-    Agent --> CLI
+    Safe --> CLI
 
     style 트리거 fill:#e8f4fd,stroke:#4a90d9
-    style 코어 fill:#e8f8e8,stroke:#5ba85b
-    style 트리아지 fill:#fef3c7,stroke:#f59e0b
-    style 에이전트들 fill:#e8d5f5,stroke:#7b2fbe
+    style 시스템 fill:none,stroke:none
     style 외부도구 fill:none,stroke:none
+    style 코어 fill:#e8f8e8,stroke:#5ba85b
+    style 저장소 fill:#f5f5f5,stroke:#999999
+    style MCP fill:#e8d5f5,stroke:#7b2fbe
+    style CLI fill:#e0f2f1,stroke:#26a69a
 ```
 
 메시지가 들어오면 키워드 필터를 통과하고, Haiku가 분류해서 적절한 에이전트를 선택한다. 4가지 트리거(report, mention, triage, usergroup)가 각각 다른 코드 경로를 탄다.
