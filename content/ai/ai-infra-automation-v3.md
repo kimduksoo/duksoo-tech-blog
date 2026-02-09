@@ -6,11 +6,13 @@ tags: ["AI", "Claude", "Agent SDK", "MCP", "인프라자동화", "WebSocket"]
 keywords: ["AI 인프라 자동화", "웹 콘솔", "WebSocket", "실시간 동기화", "Slack 자동화"]
 ---
 
-[2편](/ai/ai-infra-automation-v2/)에서 채널 기반 라우팅으로 진입장벽을 낮췄다. 이제 누구나 채널에 글만 쓰면 에이전트가 반응한다.
+[2편](/ai/ai-infra-automation-v2/)에서 라우팅 구조를 단순화했다. 채널에 글만 쓰면 에이전트가 반응하게 됐고, 키워드를 외울 필요도 없어졌다.
 
-하지만 한 가지 문제가 남아있었다.
+하지만 여전히 한 가지 문제가 있었다.
 
-<span style="color:#1565c0; font-weight:bold">에이전트가 뭘 하고 있는지 안 보인다.</span>
+<span style="color:#1565c0; font-weight:bold">나만 쓸 수 있었다.</span>
+
+...는 아니고, 정확히는 에이전트가 뭘 하고 있는지 안 보였다. 다른 사람이 쓸 수는 있는데, 지금 뭐가 돌아가고 있는지 모르니까 쓰지 않는 것이다.
 
 ---
 
