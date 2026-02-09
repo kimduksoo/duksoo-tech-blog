@@ -203,6 +203,10 @@ Slack은 좋은 인터페이스지만 한계가 있다.
 
 웹 콘솔은 이 문제를 해결한다.
 
+![웹 콘솔 랜딩 페이지](/images/ai-infra-automation/webconsole-landing.png)
+
+![웹 콘솔 상세 대화](/images/ai-infra-automation/webconsole-detail.png)
+
 ```mermaid
 flowchart LR
     subgraph Slack
