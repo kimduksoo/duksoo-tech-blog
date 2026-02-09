@@ -49,8 +49,8 @@ Slack은 좋은 인터페이스지만, 팀 도구의 대시보드로는 한계�
 ```mermaid
 flowchart LR
     subgraph Slack
-        S1[#t_인프라]
-        S2[#웹훅-테스트]
+        S1[#infra-support]
+        S2[#dev-test]
     end
 
     subgraph 상태관리[StateManager]

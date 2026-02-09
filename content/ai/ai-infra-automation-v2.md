@@ -8,9 +8,11 @@ keywords: ["AI 인프라 자동화", "채널 기반 라우팅", "Haiku 게이트
 
 [1편](/ai/ai-infra-automation/)에서는 Claude Agent SDK와 MCP로 Slack 기반 인프라 자동화를 만들었다. 비용 분석, 파라미터 스토어 등록 같은 반복 업무를 AI 에이전트에 맡기는 구조였다.
 
-잘 돌아갔다. 그런데 <span style="color:#1565c0; font-weight:bold">기능을 추가할 때마다 라우팅 규칙이 복잡해졌다.</span>
+잘 돌아갔다. 초기에는 에이전트 하나, 채널 하나로 충분했다.
 
-새 기능을 하나 추가하려면 키워드 목록과 라우팅 분기를 함께 손봐야 했다.
+그런데 <span style="color:#1565c0; font-weight:bold">기능을 추가할 때마다 라우팅 규칙이 복잡해졌다.</span>
+
+키워드를 등록하고, 동의어를 챙기고, 실제 메시지로 매칭이 되는지 테스트하는 과정이 반복됐다. 새 기능 하나를 추가하는 데 코드보다 라우팅 규칙을 다듬는 시간이 더 걸렸다.
 
 ---
 
@@ -82,7 +84,7 @@ flowchart TB
 
 ## 채널이 곧 의도다
 
-Slack은 이미 목적 단위로 채널이 나뉘어 있다. #t_인프라에 글을 쓰는 사람은 인프라 관련 이야기를 하려는 것이고, #noti_aws_cost에 올라오는 건 비용 리포트다.
+Slack은 이미 목적 단위로 채널이 나뉘어 있다. #infra-support에 글을 쓰는 사람은 인프라 관련 이야기를 하려는 것이고, #aws-cost-alerts에 올라오는 건 비용 리포트다.
 
 채널 자체가 의도를 담고 있다면, 굳이 키워드로 의도를 분류할 필요가 없다. 채널 → 에이전트를 1:1로 매핑하면 된다.
 
@@ -134,11 +136,11 @@ flowchart LR
 ```yaml
 channel_triggers:
   channels:
-    - channel_id: "C06PW1CTU5B"
-      name: "t_인프라"
+    - channel_id: "C01ABCD23EF"
+      name: "infra-support"
       default_agent: infra_request
-    - channel_id: "C09BW8WJVD1"
-      name: "웹훅-테스트"
+    - channel_id: "C02GHIJ45KL"
+      name: "dev-test"
       default_agent: infra_request
 ```
 
