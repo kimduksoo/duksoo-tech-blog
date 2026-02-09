@@ -108,7 +108,7 @@ flowchart TB
 
 핵심 인사이트는 단순하다. #t_인프라 채널에 글을 쓰는 사람은 이미 인프라 관련 이야기를 하려는 의도가 있다. 굳이 키워드로 분류할 필요가 없다.
 
-1편에서 <span style="color:#1565c0; font-weight:bold">"계산은 코드가 해야 한다"</span>는 교훈을 얻었다면, 이번에 얻은 교훈은 <span style="color:#1565c0; font-weight:bold">"라우팅은 구조가 해야 한다"</span>는 것이다. 키워드 필터와 Haiku 분류기가 하던 일을 채널 구조 자체가 대신한다.
+1편에서 <span style="color:#1565c0; font-weight:bold">결정론적 작업과 비결정론적 작업을 분리</span>한 것처럼, 이번에는 라우팅을 LLM 판단에서 구조로 옮겼다. 키워드 필터와 Haiku 분류기가 하던 일을 채널 구조 자체가 대신한다.
 
 ```mermaid
 flowchart LR
