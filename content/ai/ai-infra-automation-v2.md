@@ -111,7 +111,7 @@ flowchart TB
 1편에서 <span style="color:#1565c0; font-weight:bold">"계산은 코드가 해야 한다"</span>는 교훈을 얻었다면, 이번에 얻은 교훈은 <span style="color:#1565c0; font-weight:bold">"라우팅은 구조가 해야 한다"</span>는 것이다. 키워드 필터와 Haiku 분류기가 하던 일을 채널 구조 자체가 대신한다.
 
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph Before[기존: 키워드 라우팅]
         Msg1[메시지] --> KW{키워드 필터}
         KW -->|매칭 없음| Drop1[무시]
@@ -123,6 +123,11 @@ flowchart TB
         Select --> A3[k8s_service]
     end
 
+    style Before fill:#fff5f5,stroke:#f87171
+```
+
+```mermaid
+flowchart LR
     subgraph After[현재: 채널 라우팅]
         Msg2[메시지] --> CH{채널 등록?}
         CH -->|미등록| Drop3[무시]
@@ -131,7 +136,6 @@ flowchart TB
         GK -->|처리| Agent[채널 전용 에이전트]
     end
 
-    style Before fill:#fff5f5,stroke:#f87171
     style After fill:#f0fdf4,stroke:#4ade80
 ```
 
