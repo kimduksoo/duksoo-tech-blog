@@ -1,5 +1,5 @@
 ---
-title: "AI 인프라 자동화 #3 각자의 AI에서 팀의 AI로"
+title: "AI 인프라 자동화 #3 팀이 함께 쓰는 AI 에이전트 만들기"
 weight: 3
 description: "각자의 Claude Code에서 팀의 Delamain으로. 경험을 한 곳에 누적하고, 에이전트 활동의 가시성과 제어를 확보하기 위해 웹 콘솔을 만들고 있다."
 tags: ["AI", "Claude", "Agent SDK", "MCP", "인프라자동화", "WebSocket"]
