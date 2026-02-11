@@ -6,9 +6,9 @@ tags: ["AWS", "ECS", "EventBridge", "Chatbot", "Slack", "Terraform"]
 keywords: ["ECS 배포 실패 알림", "AWS Chatbot", "EventBridge", "SNS", "Custom Notification", "Terraform", "Circuit Breaker"]
 ---
 
-알림이 없는 장애 복구는 복구가 아니라 은폐다. 시스템이 스스로 롤백하더라도, 그 사실을 아무도 모르면 근본 원인은 영원히 남는다.
+자동 복구가 조용히 성공하면, 근본 원인은 조용히 남는다.
 
-ECS에는 Circuit Breaker라는 배포 안전장치가 있다. 배포가 실패하면 자동으로 이전 버전으로 롤백한다. 문제는 이 롤백이 조용하다는 것이다. 배포한 사람도, 운영하는 사람도 실패 사실을 모른 채 넘어갈 수 있다. Lambda 없이, AWS 네이티브 서비스만으로 배포 실패 알림을 Slack에 보내는 과정을 공유한다. 깔끔하게 끝날 줄 알았는데, 두 번 막혔다.
+ECS에는 Circuit Breaker라는 배포 안전장치가 있다. 배포가 실패하면 자동으로 이전 버전으로 롤백한다. 문제는 이 롤백이 조용하다는 것이다. 배포한 사람도, 운영하는 사람도 실패 사실을 모른 채 넘어갈 수 있다. Lambda 없이, AWS 네이티브 서비스만으로 배포 실패 알림을 Slack에 보내는 과정을 공유한다.
 
 ## 왜 Datadog이 아닌가
 
