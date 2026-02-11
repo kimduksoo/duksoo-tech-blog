@@ -61,6 +61,26 @@ deployment_circuit_breaker {
 
 `enable = true`이면 된다. `rollback = true`는 실패 시 자동 롤백까지 해주는 옵션이다.
 
+### Circuit Breaker가 감지하는 실패란?
+
+배포 승인이나 정책 검사 같은 것이 아니다. **배포가 실행된 후, 새 컨테이너가 실제로 정상 기동하지 못하는 상황**을 감지한다. 런타임 레벨의 안전장치다.
+
+```
+배포 승인/정책 통과  →  태스크 배포 시작  →  여기서 실패하면 Circuit Breaker 발동
+                                            ↑
+                                       이 구간의 문제
+```
+
+새 태스크가 RUNNING 상태에 안착하지 못하면 실패로 카운트된다. 흔한 실패 원인은 다음과 같다.
+
+| 실패 원인 | 예시 |
+|----------|------|
+| 컨테이너 시작 실패 | 이미지 pull 실패, entrypoint 에러, OOM |
+| 컨테이너 즉시 종료 | 시작 직후 crash (exit code 1), 환경변수 누락으로 DB 연결 실패 |
+| 헬스체크 실패 | ELB 또는 컨테이너 health check 미통과 |
+
+배포 중 실패한 태스크 수가 내부 임계값을 넘으면 `SERVICE_DEPLOYMENT_FAILED` 이벤트가 발생하고, `rollback = true`인 경우 이전 태스크 정의로 자동 롤백된다.
+
 ## 사전 조건: AWS Chatbot ↔ Slack 워크스페이스 연동
 
 AWS Chatbot이 Slack에 메시지를 보내려면, AWS 계정과 Slack 워크스페이스를 한 번 연결해야 한다. Slack OAuth 인증이 필요해서 **Terraform으로는 불가능**하고, AWS 콘솔에서 1회 수행한다.
