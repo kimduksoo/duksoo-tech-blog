@@ -343,22 +343,6 @@ flowchart LR
 
 SNS에 Custom Notification 형식의 메시지를 직접 발행해서 **SNS → Chatbot → Slack** 구간은 검증했다. EventBridge Rule의 이벤트 매칭과 Input Transformer 변환은 실제 배포 실패가 발생해야 확인할 수 있다.
 
-## 주의사항
-
-### Chatbot 앱 채널 초대 필수
-
-Terraform으로 `aws_chatbot_slack_channel_configuration`을 생성해도, Slack 채널에 Chatbot 앱이 자동으로 초대되지 않는 경우가 있다. Slack 채널에서 직접 앱을 초대해야 한다.
-
-### Slack 마크다운 호환
-
-Custom Notification의 `textType: "client-markdown"`은 Slack의 mrkdwn 문법을 따른다. 일반 Markdown과 다르다.
-
-| 서식 | Markdown | Slack mrkdwn |
-|------|----------|-------------|
-| 볼드 | `**text**` | `*text*` |
-| 이탤릭 | `*text*` | `_text_` |
-| 코드 | `` `text` `` | `` `text` `` |
-
 ## 결과
 
 ```mermaid
