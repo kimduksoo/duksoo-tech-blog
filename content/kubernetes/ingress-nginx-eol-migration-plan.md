@@ -12,20 +12,14 @@ keywords: ["ingress-nginx EOL", "ingress-nginx retirement", "Traefik migration",
 
 ## EOL 타임라인
 
-```mermaid
-timeline
-    title ingress-nginx EOL Timeline
-    2025-11 : EOL 발표
-             : Kubernetes 공식 블로그
-    2026-02 : Best-effort 기간
-             : 보안 패치 없음
-    2026-03 : Full EOL
-             : 모든 지원 중단
-    이후     : Repo Archived
-             : kubernetes-retired/
-```
+| 시점 | 상태 | 의미 |
+|------|------|------|
+| 2025-11 | EOL 발표 | Kubernetes 공식 블로그에서 retirement 공지 |
+| 2026-02 | Best-effort 기간 | 보안 패치 없음, 유지보수자 자발적 대응만 |
+| 2026-03 | **Full EOL** | 모든 지원 중단 — 보안 패치, 버그 수정, 신규 K8s 버전 지원 없음 |
+| 이후 | Repo Archived | `kubernetes-retired/`로 이관 |
 
-핵심: EOL 이후 기존 배포가 즉시 멈추지는 않는다. 하지만 보안 취약점이 발견되어도 패치가 나오지 않는다. 시한부 운영인 셈이다.
+EOL 이후 기존 배포가 즉시 멈추지는 않는다. 하지만 보안 취약점이 발견되어도 패치가 나오지 않는다. 시한부 운영인 셈이다.
 
 참고로 F5 NGINX Ingress Controller(`nginxinc/kubernetes-ingress`)는 별개 프로젝트로 EOL 대상이 아니다. 이름이 비슷해서 혼동하기 쉽다.
 
