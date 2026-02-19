@@ -97,23 +97,25 @@ pie title PROD Ingress 분포 (23개)
 ingress-nginx EOL 발표 이후 커뮤니티에서 실제로 어떤 선택을 하고 있는지 조사했다.
 
 ```mermaid
-graph LR
-    EOL["ingress-nginx<br/>EOL 발표"]
+graph TD
+    EOL["ingress-nginx EOL"]
 
-    EOL --> Phase1["Phase 1: 즉시 대응<br/>(3월 데드라인)"]
-    EOL --> Phase2["Phase 2: 장기 전환<br/>(시간 여유 있을 때)"]
+    EOL --> Phase1["Phase 1: 즉시 대응"]
+    EOL --> Phase2["Phase 2: 장기 전환"]
 
-    Phase1 --> Traefik["Traefik<br/>nginx 호환 모드<br/>drop-in 교체"]
-    Phase1 --> F5["F5 NGINX IC<br/>동일 엔진<br/>annotation 변경"]
-    Phase1 --> ALB["ALB Direct<br/>아키텍처 변경<br/>Ingress 재작성"]
+    Phase1 --> Traefik["Traefik\nnginx 호환 모드"]
+    Phase1 --> F5["F5 NGINX IC\n동일 엔진"]
+    Phase1 --> ALB["ALB Direct\n아키텍처 변경"]
 
-    Phase2 --> GW["Gateway API<br/>+ HTTPRoute<br/>K8s 공식 표준"]
+    Phase2 --> GW["Gateway API\nK8s 공식 표준"]
 
-    style EOL fill:#f87171,color:#fff
-    style Traefik fill:#4ade80,color:#000
-    style F5 fill:#a78bfa,color:#fff
-    style ALB fill:#38bdf8,color:#000
-    style GW fill:#fbbf24,color:#000
+    style EOL fill:#374151,stroke:#6b7280,color:#e5e7eb
+    style Phase1 fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style Phase2 fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style Traefik fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style F5 fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style ALB fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style GW fill:#1e293b,stroke:#6b7280,color:#cbd5e1
 ```
 
 **커뮤니티 선호도:**
@@ -160,26 +162,31 @@ F5에 대해서는 "OSS 버전은 기본만 제공, OIDC/session affinity/상세
 
 ```mermaid
 flowchart TB
-    User["사용자<br/>app.example.corp"]
-    DNS["Route53<br/>CNAME"]
-    ALB["ALB<br/>(수동 생성)"]
-    TGB["TargetGroupBinding<br/>(target type: ip)"]
-    NGINX["ingress-nginx Pod<br/>(ClusterIP Service)"]
-    SvcA["Service A Pod"]
-    SvcB["Service B Pod"]
-    SvcC["Service C Pod"]
+    User["사용자"]
+    DNS["Route53"]
+    ALB["ALB\n(수동 생성)"]
+    TGB["TargetGroupBinding"]
+    NGINX["ingress-nginx Pod"]
+    SvcA["Service A"]
+    SvcB["Service B"]
+    SvcC["Service C"]
 
     User -->|"HTTPS"| DNS
-    DNS -->|"CNAME → ALB DNS"| ALB
+    DNS -->|"CNAME"| ALB
     ALB -->|"모든 트래픽"| TGB
     TGB -->|"Pod IP"| NGINX
-    NGINX -->|"Host: a.example.corp"| SvcA
-    NGINX -->|"Host: b.example.corp"| SvcB
-    NGINX -->|"Host: c.example.corp"| SvcC
+    NGINX --> SvcA
+    NGINX --> SvcB
+    NGINX --> SvcC
 
-    style NGINX fill:#7f1d1d,stroke:#f87171,color:#fecaca
-    style ALB fill:#1e3a5f,stroke:#38bdf8,color:#bae6fd
-    style TGB fill:#3b2f00,stroke:#fbbf24,color:#fef3c7
+    style User fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style DNS fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style ALB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style TGB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style NGINX fill:#3b1c1c,stroke:#7f1d1d,color:#e5e7eb
+    style SvcA fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcC fill:#1e293b,stroke:#475569,color:#cbd5e1
 ```
 
 ingress-nginx Pod가 **모든 트래픽의 단일 경유점(SPOF)**이다. 이 Pod가 죽으면 전체 트래픽이 중단된다. ALB는 수동으로 생성했고, TargetGroupBinding이라는 K8s 리소스로 ingress-nginx Pod IP를 Target Group에 자동 등록하는 구조다.
@@ -188,26 +195,31 @@ ingress-nginx Pod가 **모든 트래픽의 단일 경유점(SPOF)**이다. 이 P
 
 ```mermaid
 flowchart TB
-    User["사용자<br/>app.example.corp"]
-    DNS["Route53<br/>CNAME"]
-    ALB["ALB<br/>(기존 유지)"]
-    TGB["TargetGroupBinding<br/>(기존 유지)"]
-    NEW["Traefik 또는 F5 Pod<br/>(ingress-nginx 대체)"]
-    SvcA["Service A Pod"]
-    SvcB["Service B Pod"]
-    SvcC["Service C Pod"]
+    User["사용자"]
+    DNS["Route53"]
+    ALB["ALB\n(기존 유지)"]
+    TGB["TargetGroupBinding\n(기존 유지)"]
+    NEW["Traefik 또는 F5 Pod"]
+    SvcA["Service A"]
+    SvcB["Service B"]
+    SvcC["Service C"]
 
     User -->|"HTTPS"| DNS
-    DNS -->|"CNAME → ALB DNS"| ALB
+    DNS -->|"CNAME"| ALB
     ALB -->|"모든 트래픽"| TGB
     TGB -->|"Pod IP"| NEW
-    NEW -->|"Host: a.example.corp"| SvcA
-    NEW -->|"Host: b.example.corp"| SvcB
-    NEW -->|"Host: c.example.corp"| SvcC
+    NEW --> SvcA
+    NEW --> SvcB
+    NEW --> SvcC
 
-    style NEW fill:#1e3a5f,stroke:#38bdf8,color:#bae6fd
-    style ALB fill:#1e3a5f,stroke:#38bdf8,color:#bae6fd
-    style TGB fill:#3b2f00,stroke:#fbbf24,color:#fef3c7
+    style User fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style DNS fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style ALB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style TGB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style NEW fill:#1a2e1a,stroke:#2d5a2d,color:#e5e7eb
+    style SvcA fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcC fill:#1e293b,stroke:#475569,color:#cbd5e1
 ```
 
 **구조 변경 없음.** ingress-nginx Pod 자리에 새 컨트롤러가 들어갈 뿐이다. ALB, TargetGroupBinding, DNS 모두 그대로 유지한다.
@@ -216,20 +228,25 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    User["사용자<br/>app.example.corp"]
-    DNS["Route53<br/>external-dns 자동 관리"]
-    ALB["ALB (IngressGroup)<br/>AWS LB Controller 자동 관리"]
-    SvcA["Service A Pod"]
-    SvcB["Service B Pod"]
-    SvcC["Service C Pod"]
+    User["사용자"]
+    DNS["Route53\nexternal-dns 자동"]
+    ALB["ALB (IngressGroup)\nAWS LB Controller 자동"]
+    SvcA["Service A"]
+    SvcB["Service B"]
+    SvcC["Service C"]
 
     User -->|"HTTPS"| DNS
-    DNS -->|"CNAME → ALB DNS"| ALB
-    ALB -->|"Host: a.example.corp"| SvcA
-    ALB -->|"Host: b.example.corp"| SvcB
-    ALB -->|"Host: c.example.corp"| SvcC
+    DNS -->|"CNAME"| ALB
+    ALB --> SvcA
+    ALB --> SvcB
+    ALB --> SvcC
 
-    style ALB fill:#14532d,stroke:#4ade80,color:#dcfce7
+    style User fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style DNS fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style ALB fill:#1a2e1a,stroke:#2d5a2d,color:#e5e7eb
+    style SvcA fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcB fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style SvcC fill:#1e293b,stroke:#475569,color:#cbd5e1
 ```
 
 ingress-nginx Pod 레이어가 사라진다. ALB가 Host 헤더 기반으로 직접 서비스 Pod에 라우팅한다. AWS LB Controller가 Ingress 리소스를 감시하고 ALB 리스너 규칙과 Target Group을 자동으로 생성/관리한다.
@@ -273,24 +290,22 @@ ingress-nginx Pod 레이어가 사라진다. ALB가 Host 헤더 기반으로 직
 - 고부하 시 NGINX 대비 성능 우려
 
 ```mermaid
-flowchart LR
-    subgraph "Phase 0: 준비 (0.5d)"
-        A1["Helm chart 준비<br/>호환 모드 설정"]
-        A2["annotation 호환<br/>범위 검증"]
+flowchart TD
+    subgraph P0["Phase 0: 준비 (0.5d)"]
+        A1["Helm chart 준비\n호환 모드 설정"] --> A2["annotation 호환\n범위 검증"]
     end
-    subgraph "Phase 1: DEV (0.5~1d)"
-        B1["Traefik 설치"]
-        B2["TGB target 전환"]
-        B3["파일럿 검증"]
-        B4["ingress-nginx 제거"]
+    subgraph P1["Phase 1: DEV (0.5~1d)"]
+        B1["Traefik 설치"] --> B2["TGB target 전환"] --> B3["파일럿 검증"] --> B4["ingress-nginx 제거"]
     end
-    subgraph "Phase 2: PROD (1~2d)"
-        C1["PROD 설치 + 전환"]
-        C2["모니터링 (1일)"]
-        C3["ingress-nginx 제거"]
+    subgraph P2["Phase 2: PROD (1~2d)"]
+        C1["PROD 설치 + 전환"] --> C2["모니터링 (1일)"] --> C3["ingress-nginx 제거"]
     end
 
-    A1 --> A2 --> B1 --> B2 --> B3 --> B4 --> C1 --> C2 --> C3
+    P0 --> P1 --> P2
+
+    style P0 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P1 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P2 fill:#1e293b,stroke:#475569,color:#94a3b8
 ```
 
 ### Path B: F5 NGINX IC
@@ -306,26 +321,22 @@ flowchart LR
 - annotation namespace 변경 필요 (`nginx.ingress.kubernetes.io` → `nginx.org`)
 
 ```mermaid
-flowchart LR
-    subgraph "Phase 0: 준비 (0.5d)"
-        A1["Helm chart 준비"]
-        A2["annotation 매핑<br/>목록 작성"]
+flowchart TD
+    subgraph P0["Phase 0: 준비 (0.5d)"]
+        A1["Helm chart 준비"] --> A2["annotation 매핑\n목록 작성"]
     end
-    subgraph "Phase 1: DEV (0.5~1d)"
-        B1["F5 설치"]
-        B2["파일럿 annotation 변경"]
-        B3["TGB 전환"]
-        B4["65개 annotation 일괄 변경"]
-        B5["ingress-nginx 제거"]
+    subgraph P1["Phase 1: DEV (0.5~1d)"]
+        B1["F5 설치"] --> B2["파일럿 annotation 변경"] --> B3["TGB 전환"] --> B4["65개 annotation\n일괄 변경"] --> B5["ingress-nginx 제거"]
     end
-    subgraph "Phase 2: PROD (1~2d)"
-        C1["PROD 설치 + 파일럿"]
-        C2["모니터링 (1일)"]
-        C3["전체 annotation 변경"]
-        C4["ingress-nginx 제거"]
+    subgraph P2["Phase 2: PROD (1~2d)"]
+        C1["PROD 설치 + 파일럿"] --> C2["모니터링 (1일)"] --> C3["전체 annotation 변경"] --> C4["ingress-nginx 제거"]
     end
 
-    A1 --> A2 --> B1 --> B2 --> B3 --> B4 --> B5 --> C1 --> C2 --> C3 --> C4
+    P0 --> P1 --> P2
+
+    style P0 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P1 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P2 fill:#1e293b,stroke:#475569,color:#94a3b8
 ```
 
 ### Path C: ALB Direct
@@ -342,48 +353,48 @@ flowchart LR
 - 3월 데드라인에 빠듯
 
 ```mermaid
-flowchart LR
-    subgraph "Phase 0: 준비 (1~2d)"
-        A1["Ingress manifest 파악"]
-        A2["ACM cert ARN 매핑"]
-        A3["IngressGroup 전략"]
+flowchart TD
+    subgraph P0["Phase 0: 준비 (1~2d)"]
+        A1["Ingress manifest 파악"] --> A2["ACM cert ARN 매핑"] --> A3["IngressGroup 전략"]
     end
-    subgraph "Phase 1: DEV (2~3d)"
-        B1["파일럿: ALB Ingress<br/>(nginx 병행)"]
-        B2["네임스페이스별 순차 전환"]
-        B3["TGB + ingress-nginx 제거"]
+    subgraph P1["Phase 1: DEV (2~3d)"]
+        B1["파일럿: ALB Ingress\n(nginx 병행)"] --> B2["네임스페이스별\n순차 전환"] --> B3["TGB +\ningress-nginx 제거"]
     end
-    subgraph "Phase 2: PROD (3~5d)"
-        C1["파일럿 전환"]
-        C2["모니터링 (1일)"]
-        C3["순차 전환 + 특수 서비스"]
-        C4["ingress-nginx 제거"]
+    subgraph P2["Phase 2: PROD (3~5d)"]
+        C1["파일럿 전환"] --> C2["모니터링 (1일)"] --> C3["순차 전환 +\n특수 서비스"] --> C4["ingress-nginx 제거"]
     end
 
-    A1 --> A2 --> A3 --> B1 --> B2 --> B3 --> C1 --> C2 --> C3 --> C4
+    P0 --> P1 --> P2
+
+    style P0 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P1 fill:#1e293b,stroke:#475569,color:#94a3b8
+    style P2 fill:#1e293b,stroke:#475569,color:#94a3b8
 ```
 
 ## Rollback 전략
 
+**Path A/B:**
+
 ```mermaid
 flowchart TD
-    subgraph "Path A/B Rollback"
-        R1["문제 발생"] --> R2["TGB target을<br/>ingress-nginx로 원복"]
-        R2 --> R3["즉시 원복 완료"]
-        R3 -.->|"ingress-nginx Pod는<br/>전환 완료까지 유지"| R4["최소 1일 안정 확인 후<br/>ingress-nginx 제거"]
-    end
+    R1["문제 발생"] --> R2["TGB target →\ningress-nginx 원복"]
+    R2 --> R3["즉시 원복 완료"]
+    R3 -.->|"1일 안정 확인 후"| R4["ingress-nginx 제거"]
 
-    subgraph "Path C Rollback"
-        S1["문제 발생"] --> S2["ALB Ingress 삭제"]
-        S2 --> S3["ALB 자동 정리"]
-        S3 --> S4["nginx Ingress<br/>그대로 유지"]
-        S4 -.->|"모든 서비스 전환 확인 후"| S5["마지막에<br/>ingress-nginx 제거"]
-    end
+    style R1 fill:#3b1c1c,stroke:#7f1d1d,color:#e5e7eb
+    style R3 fill:#1a2e1a,stroke:#2d5a2d,color:#e5e7eb
+```
 
-    style R1 fill:#7f1d1d,stroke:#f87171,color:#fecaca
-    style S1 fill:#7f1d1d,stroke:#f87171,color:#fecaca
-    style R3 fill:#14532d,stroke:#4ade80,color:#dcfce7
-    style S4 fill:#14532d,stroke:#4ade80,color:#dcfce7
+**Path C:**
+
+```mermaid
+flowchart TD
+    S1["문제 발생"] --> S2["ALB Ingress 삭제"]
+    S2 --> S3["nginx Ingress\n그대로 유지"]
+    S3 -.->|"모든 서비스 확인 후"| S4["ingress-nginx 제거"]
+
+    style S1 fill:#3b1c1c,stroke:#7f1d1d,color:#e5e7eb
+    style S3 fill:#1a2e1a,stroke:#2d5a2d,color:#e5e7eb
 ```
 
 Path A/B는 TGB 하나만 바꾸면 되므로 롤백이 매우 빠르다. Path C는 nginx Ingress와 ALB Ingress를 병행 운영하므로 DNS 전환 전까지 서비스별 개별 롤백이 가능하다.
