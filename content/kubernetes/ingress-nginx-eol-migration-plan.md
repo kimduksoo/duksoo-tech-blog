@@ -23,6 +23,26 @@ EOL 이후 기존 배포가 즉시 멈추지는 않는다. 하지만 보안 취�
 
 참고로 F5 NGINX Ingress Controller(`nginxinc/kubernetes-ingress`)는 별개 프로젝트로 EOL 대상이 아니다. 이름이 비슷해서 혼동하기 쉽다.
 
+## 왜 ingress-nginx를 쓰고 있었나
+
+EOL 대응을 논하기 전에, 왜 ingress-nginx가 필요했는지부터 짚어야 한다. "뭘로 바꿀까"보다 "왜 이걸 쓰고 있었나"를 먼저 이해해야 올바른 대안을 고를 수 있다.
+
+**핵심은 비용이었다.** AWS LB Controller 초기에는 Ingress 리소스 1개당 ALB가 1개씩 생성됐다. 서비스가 수십 개면 ALB도 수십 개, ALB 시간당 과금이 폭증한다. 그래서 **ALB 1개 → ingress-nginx Pod 1개 → 서비스 N개**로 라우팅하는 구조가 표준이었다. ingress-nginx Pod가 모든 트래픽을 받아서 Host 헤더 기반으로 분배하는 역할을 했다.
+
+또한 ingress-nginx는 K8s 초창기부터 사실상 표준(de facto)이었고, CORS, rate limiting, path rewrite, WebSocket 등 ALB가 네이티브로 지원하지 않던 기능들을 제공했다.
+
+**하지만 상황이 바뀌었다.**
+
+| 과거 | 현재 |
+|------|------|
+| Ingress 1개 = ALB 1개 (비용 폭증) | **IngressGroup** annotation으로 Ingress N개 = ALB 1개 가능 |
+| ALB는 단순 L7 LB | ALB가 gRPC, WebSocket, 경로 기반 라우팅 네이티브 지원 |
+| ingress-nginx가 유일한 선택지 | AWS LB Controller가 성숙, 이미 설치되어 있음 |
+
+IngressGroup이 나오면서 ingress-nginx의 존재 이유가 사실상 사라졌다. ALB 1개로 여러 Ingress를 묶을 수 있으니, nginx Pod를 중간에 두고 라우팅할 필요가 없어진 것이다. 게다가 nginx Pod는 SPOF(단일 장애점)다. 이 Pod가 죽으면 전체 트래픽이 중단된다. ALB는 AWS 관리형으로 자체 고가용성을 보장한다.
+
+EOL이 아니더라도, **IngressGroup이 존재하는 지금 ingress-nginx를 계속 쓸 이유는 거의 없다.** EOL은 이 전환을 앞당기는 트리거일 뿐이다.
+
 ## 환경 현황
 
 ### 클러스터 현황
@@ -411,7 +431,48 @@ Path A/B는 TGB 하나만 바꾸면 되므로 롤백이 매우 빠르다. Path C
 
 하지만 다른 시각도 있다. Kubernetes Gateway API는 Ingress API의 공식 후속 표준으로, 이미 GA(v1.2)에 도달했다. "어차피 Ingress API도 결국 deprecated될 것이라면, 지금 바로 Gateway API로 가는 게 맞지 않느냐"는 주장이다.
 
-이 관점에서는 **어떤 Gateway API 구현체가 실제로 얼마나 잘 작동하는가**가 핵심 판단 기준이 된다. Kubernetes SIG-Network에서 운영하는 Gateway API 적합성 테스트(100라운드)를 기준으로 정리하면 다음과 같다.
+### Gateway API가 해결하는 문제
+
+Gateway API는 Ingress API의 구조적 한계를 해결하기 위해 설계됐다.
+
+**1. 역할 분리.** Ingress API는 하나의 리소스에 모든 것이 섞여 있다. Gateway API는 역할별로 분리된다.
+
+| 리소스 | 누가 관리 | 예시 |
+|--------|----------|------|
+| GatewayClass | 인프라팀 | "우리는 NGINX Gateway Fabric을 쓴다" |
+| Gateway | 플랫폼팀 | "443 포트, TLS 인증서, 이 도메인들" |
+| HTTPRoute | 개발팀 | "/api → 내 서비스로 보내줘" |
+
+개발팀이 라우팅 규칙만 건드리고, 게이트웨이 설정은 못 건드리게 할 수 있다. 대규모 멀티팀 환경에서 의미가 크다.
+
+**2. Ingress API보다 표현력이 높다.**
+
+| 기능 | Ingress API | Gateway API |
+|------|------------|-------------|
+| 헤더 기반 라우팅 | annotation 의존 | 네이티브 |
+| 트래픽 분할 (카나리) | 불가 | weight 기반 네이티브 |
+| 요청 미러링 | 불가 | 네이티브 |
+| gRPC 전용 라우트 | annotation | GRPCRoute |
+| cross-namespace 라우팅 | 제한적 | 명시적 permission grant |
+
+**3. 벤더 독립성.** ALB Ingress annotation은 AWS 전용이다. Gateway API는 K8s 표준이라 AWS → GCP → on-prem 어디서든 동일한 HTTPRoute가 동작한다.
+
+**4. Ingress API는 이미 동결 상태다.** 새 기능이 추가되지 않는다. Gateway API가 공식 후속이고, 언젠가 Ingress API도 deprecated될 가능성이 있다.
+
+### 우리 환경에서의 판단
+
+다만 냉정하게 보면, **우리 환경에서 Gateway API가 당장 필요한 이유는 거의 없다.**
+
+- **역할 분리** — 팀 규모가 크지 않아서 Ingress 하나에 다 넣어도 문제없다
+- **고급 라우팅** — 카나리, 트래픽 미러링을 쓰지 않는다. host + path 라우팅이면 충분하다
+- **벤더 독립성** — 100% AWS 환경이고, 클라우드 이전 계획이 없다
+- **Ingress deprecated** — 아직 시점이 정해지지 않았고, 수년은 걸릴 것이다
+
+Gateway API는 "대규모 멀티팀 + 멀티클라우드 + 고급 라우팅"에서 빛나는 표준이다. 소규모 단일 클라우드 환경에서는 ALB Direct로 충분하고, Gateway API는 "있으면 좋지만 없어도 문제없는" 수준이다. 도입할 이유가 있다면 딱 하나 — "Ingress API가 deprecated되면 또 마이그레이션해야 하는데, 그걸 두 번 하기 싫다" 정도다. 하지만 그 "언젠가"가 3~5년 뒤일 수 있고, 그때 가서 해도 된다.
+
+### 적합성 테스트 결과
+
+그럼에도 Gateway API를 고려한다면, **어떤 구현체가 실제로 얼마나 잘 작동하는가**가 핵심이다. Kubernetes SIG-Network에서 운영하는 Gateway API 적합성 테스트(100라운드)를 기준으로 정리하면 다음과 같다.
 
 ### 적합성 테스트 결과
 
@@ -475,17 +536,15 @@ CyberArk 사례(앞서 실제 마이그레이션 사례 참고)가 전략 2의 �
 
 조사를 마치고 정리한 판단 기준은 다음과 같다.
 
-**데드라인이 핵심이다.** 3월까지 EOL 대응이 우선이고, 아키텍처 개선은 이후에 해도 된다. Path A/B는 1~3일, Path C는 7~11일이다.
+**ingress-nginx는 IngressGroup 없던 시절의 유산이다.** 원래 ingress-nginx가 필요했던 이유는 "Ingress 1개 = ALB 1개"라는 비용 문제 때문이었다. IngressGroup이 나온 지금, nginx Pod를 중간에 두고 라우팅할 이유가 없다. EOL은 이 전환을 앞당기는 트리거일 뿐이다.
 
-**annotation 사용이 적어 유리하다.** nginx annotation 6종, snippet 1건. 1,097개 Ingress에 89종 annotation을 쓰는 Skyscrapers와 비교하면 어떤 경로든 부담이 적다. 이는 역설적으로 Gateway API 직접 전환에도 유리한 조건이다.
+**우리 환경에서는 ALB Direct가 가장 깔끔하다.** nginx annotation 6종, snippet 1건, CORS/rate limiting 0건. nginx 고유 기능을 거의 쓰지 않고 있다. ALB Controller는 이미 설치되어 있고, PROD에 검증된 패턴도 존재한다. nginx Pod(SPOF)를 제거하고 AWS 관리형 HA를 얻을 수 있다. 다만 88개 Ingress 재작성이라는 물량이 있고, 데드라인이 촉박하면 부담이 된다.
 
-**"빠른 교체"와 "제대로 전환"은 트레이드오프다.** 커뮤니티에서는 Traefik drop-in이 가장 인기 있지만, Gateway API 적합성 테스트에서 B등급이라는 점은 무시할 수 없다. "지금 Traefik으로 빠르게 바꾸고 나중에 Gateway API로"가 정말 나중에 가능한지, 아니면 그냥 지금 Gateway API로 가는 게 총비용이 적은지 판단이 필요하다.
+**Gateway API는 지금 당장은 불필요하다.** 대규모 멀티팀, 멀티클라우드, 카나리/트래픽 미러링이 필요한 환경에서 빛나는 표준이다. 소규모 단일 AWS 환경에서는 ALB Direct로 충분하다. Ingress API가 deprecated되더라도 수년은 걸릴 것이고, 그때 가서 전환해도 된다.
 
-**NGINX Gateway Fabric이라는 옵션이 있다.** 초기 조사에서 누락했던 선택지다. Gateway API A등급 통과, NGINX 엔진 기반, F5 전담 유지보수. Ingress API 호환은 아니지만, annotation 사용이 적은 환경에서는 전환 비용이 크지 않을 수 있다.
+**커뮤니티 대세가 우리 정답은 아니다.** 커뮤니티에서는 Traefik이 가장 인기 있지만, 대규모 환경(1,000개+ Ingress, 복잡한 annotation)에서의 선택이다. nginx 고유 기능을 거의 안 쓰는 우리 환경에서는 오히려 불필요한 계층을 하나 더 유지하는 셈이다.
 
-**F5 실채택 사례는 찾지 못했다.** 커뮤니티에서 언급은 되지만 실제 후기가 없다. "당장은 쉽지만 장기적으로 재전환 필요"라는 의견이 다수다.
-
-**ALB는 AWS 네이티브로 가장 깔끔하다.** 이미 LB Controller가 설치되어 있다면 고려할 가치가 있다. 다만 Ingress 재작성이라는 물량이 있고, 데드라인이 촉박하면 부담이 된다.
+**annotation 사용이 적어 어떤 경로든 부담이 적다.** 1,097개 Ingress에 89종 annotation을 쓰는 Skyscrapers와 비교하면, 우리는 어떤 경로를 택해도 기술적 블로커가 거의 없다. 이는 역설적으로 "가장 올바른 경로"를 선택할 자유가 있다는 뜻이다.
 
 아직 최종 경로를 결정하지 않았다. 이 글은 판단 재료를 모은 것이고, 실제 전환 작업과 그 과정에서의 삽질은 다음 글에서 다룰 예정이다.
 
