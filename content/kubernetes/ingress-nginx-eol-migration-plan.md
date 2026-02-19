@@ -103,11 +103,11 @@ graph TD
     EOL --> Phase1["Phase 1: 즉시 대응"]
     EOL --> Phase2["Phase 2: 장기 전환"]
 
-    Phase1 --> Traefik["Traefik\nnginx 호환 모드"]
-    Phase1 --> F5["F5 NGINX IC\n동일 엔진"]
-    Phase1 --> ALB["ALB Direct\n아키텍처 변경"]
+    Phase1 --> Traefik["Traefik<br/>nginx 호환 모드"]
+    Phase1 --> F5["F5 NGINX IC<br/>동일 엔진"]
+    Phase1 --> ALB["ALB Direct<br/>아키텍처 변경"]
 
-    Phase2 --> GW["Gateway API\nK8s 공식 표준"]
+    Phase2 --> GW["Gateway API<br/>K8s 공식 표준"]
 
     style EOL fill:#374151,stroke:#6b7280,color:#e5e7eb
     style Phase1 fill:#1e293b,stroke:#475569,color:#cbd5e1
@@ -164,7 +164,7 @@ F5에 대해서는 "OSS 버전은 기본만 제공, OIDC/session affinity/상세
 flowchart TB
     User["사용자"]
     DNS["Route53"]
-    ALB["ALB\n(수동 생성)"]
+    ALB["ALB<br/>(수동 생성)"]
     TGB["TargetGroupBinding"]
     NGINX["ingress-nginx Pod"]
     SvcA["Service A"]
@@ -197,8 +197,8 @@ ingress-nginx Pod가 **모든 트래픽의 단일 경유점(SPOF)**이다. 이 P
 flowchart TB
     User["사용자"]
     DNS["Route53"]
-    ALB["ALB\n(기존 유지)"]
-    TGB["TargetGroupBinding\n(기존 유지)"]
+    ALB["ALB<br/>(기존 유지)"]
+    TGB["TargetGroupBinding<br/>(기존 유지)"]
     NEW["Traefik 또는 F5 Pod"]
     SvcA["Service A"]
     SvcB["Service B"]
@@ -229,8 +229,8 @@ flowchart TB
 ```mermaid
 flowchart TB
     User["사용자"]
-    DNS["Route53\nexternal-dns 자동"]
-    ALB["ALB (IngressGroup)\nAWS LB Controller 자동"]
+    DNS["Route53<br/>external-dns 자동"]
+    ALB["ALB (IngressGroup)<br/>AWS LB Controller 자동"]
     SvcA["Service A"]
     SvcB["Service B"]
     SvcC["Service C"]
@@ -292,7 +292,7 @@ ingress-nginx Pod 레이어가 사라진다. ALB가 Host 헤더 기반으로 직
 ```mermaid
 flowchart TD
     subgraph P0["Phase 0: 준비 (0.5d)"]
-        A1["Helm chart 준비\n호환 모드 설정"] --> A2["annotation 호환\n범위 검증"]
+        A1["Helm chart 준비<br/>호환 모드 설정"] --> A2["annotation 호환<br/>범위 검증"]
     end
     subgraph P1["Phase 1: DEV (0.5~1d)"]
         B1["Traefik 설치"] --> B2["TGB target 전환"] --> B3["파일럿 검증"] --> B4["ingress-nginx 제거"]
@@ -323,10 +323,10 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph P0["Phase 0: 준비 (0.5d)"]
-        A1["Helm chart 준비"] --> A2["annotation 매핑\n목록 작성"]
+        A1["Helm chart 준비"] --> A2["annotation 매핑<br/>목록 작성"]
     end
     subgraph P1["Phase 1: DEV (0.5~1d)"]
-        B1["F5 설치"] --> B2["파일럿 annotation 변경"] --> B3["TGB 전환"] --> B4["65개 annotation\n일괄 변경"] --> B5["ingress-nginx 제거"]
+        B1["F5 설치"] --> B2["파일럿 annotation 변경"] --> B3["TGB 전환"] --> B4["65개 annotation<br/>일괄 변경"] --> B5["ingress-nginx 제거"]
     end
     subgraph P2["Phase 2: PROD (1~2d)"]
         C1["PROD 설치 + 파일럿"] --> C2["모니터링 (1일)"] --> C3["전체 annotation 변경"] --> C4["ingress-nginx 제거"]
@@ -358,10 +358,10 @@ flowchart TD
         A1["Ingress manifest 파악"] --> A2["ACM cert ARN 매핑"] --> A3["IngressGroup 전략"]
     end
     subgraph P1["Phase 1: DEV (2~3d)"]
-        B1["파일럿: ALB Ingress\n(nginx 병행)"] --> B2["네임스페이스별\n순차 전환"] --> B3["TGB +\ningress-nginx 제거"]
+        B1["파일럿: ALB Ingress<br/>(nginx 병행)"] --> B2["네임스페이스별<br/>순차 전환"] --> B3["TGB +<br/>ingress-nginx 제거"]
     end
     subgraph P2["Phase 2: PROD (3~5d)"]
-        C1["파일럿 전환"] --> C2["모니터링 (1일)"] --> C3["순차 전환 +\n특수 서비스"] --> C4["ingress-nginx 제거"]
+        C1["파일럿 전환"] --> C2["모니터링 (1일)"] --> C3["순차 전환 +<br/>특수 서비스"] --> C4["ingress-nginx 제거"]
     end
 
     P0 --> P1 --> P2
@@ -377,7 +377,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    R1["문제 발생"] --> R2["TGB target →\ningress-nginx 원복"]
+    R1["문제 발생"] --> R2["TGB target →<br/>ingress-nginx 원복"]
     R2 --> R3["즉시 원복 완료"]
     R3 -.->|"1일 안정 확인 후"| R4["ingress-nginx 제거"]
 
@@ -390,7 +390,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     S1["문제 발생"] --> S2["ALB Ingress 삭제"]
-    S2 --> S3["nginx Ingress\n그대로 유지"]
+    S2 --> S3["nginx Ingress<br/>그대로 유지"]
     S3 -.->|"모든 서비스 확인 후"| S4["ingress-nginx 제거"]
 
     style S1 fill:#3b1c1c,stroke:#7f1d1d,color:#e5e7eb
