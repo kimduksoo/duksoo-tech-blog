@@ -1,7 +1,7 @@
 ---
 title: "ingress-nginx EOL: 88개 Ingress를 어디로 옮길 것인가"
 weight: 7
-description: "2026년 3월 ingress-nginx EOL 대응을 위한 마이그레이션 조사 기록. 3가지 경로(Traefik, F5 NGINX IC, ALB Direct)를 환경 기준으로 비교했다."
+description: "2026년 3월 ingress-nginx EOL 대응을 위한 마이그레이션 조사 기록. Ingress API 유지(Traefik, F5, ALB)와 Gateway API 직접 전환(NGINX Gateway Fabric, Envoy Gateway) 두 전략을 비교했다."
 tags: ["Kubernetes", "ingress-nginx", "Traefik", "ALB", "Gateway API", "체크포인트"]
 keywords: ["ingress-nginx EOL", "ingress-nginx retirement", "Traefik migration", "F5 NGINX Ingress Controller", "ALB Ingress", "Gateway API", "EKS ingress"]
 ---
@@ -118,8 +118,8 @@ graph TD
 
 | 순위 | 선택지 | 반응 |
 |-----|-------|------|
-| 1위 | Traefik | nginx annotation 80% 호환 모드, Gateway API 내장, CORS/rate limiting 네이티브 |
-| 2위 | Gateway API (Envoy 기반) | K8s 공식 장기 표준. 생태계 미성숙으로 즉시 전환은 비권장 |
+| 1위 | Traefik | nginx annotation 80% 호환 모드, CORS/rate limiting 네이티브 |
+| 2위 | Gateway API (Envoy 등) | K8s 공식 장기 표준. 구현체 성숙도가 빠르게 올라오는 중 |
 | 3위 | F5 NGINX IC | 가장 쉬운 전환. OIDC/metrics 등 상용 paywall 우려 |
 | 4위 | ALB (AWS) | AWS 환경 유효. CORS/rate limiting 네이티브 미지원 |
 
@@ -127,6 +127,8 @@ graph TD
 
 - **Phase 1 (지금)**: Traefik nginx 호환 모드로 drop-in 교체 → EOL 해결
 - **Phase 2 (나중에)**: Gateway API + HTTPRoute로 점진 전환 → 아키텍처 개선
+
+단, Traefik의 Gateway API 호환성에 대해서는 주의가 필요하다. 후술하는 [Gateway API 구현체 평가](#gateway-api-구현체-평가)에서 다루지만, Traefik은 Gateway API 적합성 테스트에서 B등급을 받았다. "drop-in 교체는 빠르지만 Gateway API 전환까지 고려하면 Traefik이 최선은 아닐 수 있다"는 시각도 존재한다.
 
 F5에 대해서는 "OSS 버전은 기본만 제공, OIDC/session affinity/상세 metrics는 NGINX Plus(상용) 필요"라는 우려가 다수였다.
 
@@ -403,19 +405,87 @@ Path A/B는 TGB 하나만 바꾸면 되므로 롤백이 매우 빠르다. Path C
 | 메트릭 수집기 | gRPC | 기본 지원 (h2c) | annotation만 변경 | gRPC support + backend-protocol-version |
 | GitOps UI | UI + gRPC 혼합 | IngressRoute로 분리 가능 | annotation namespace만 변경 | 별도 검토 필요 |
 
+## Gateway API 구현체 평가
+
+앞서 정리한 3가지 경로는 모두 **Ingress API 기반**이다. 즉, 컨트롤러만 교체하고 기존 Ingress 리소스를 계속 사용하는 접근이다.
+
+하지만 다른 시각도 있다. Kubernetes Gateway API는 Ingress API의 공식 후속 표준으로, 이미 GA(v1.2)에 도달했다. "어차피 Ingress API도 결국 deprecated될 것이라면, 지금 바로 Gateway API로 가는 게 맞지 않느냐"는 주장이다.
+
+이 관점에서는 **어떤 Gateway API 구현체가 실제로 얼마나 잘 작동하는가**가 핵심 판단 기준이 된다. Kubernetes SIG-Network에서 운영하는 Gateway API 적합성 테스트(100라운드)를 기준으로 정리하면 다음과 같다.
+
+### 적합성 테스트 결과
+
+| 등급 | 구현체 | 특징 |
+|-----|-------|------|
+| **A등급** (100라운드 통과) | NGINX Gateway Fabric | NGINX의 Gateway API 전용 구현체. F5 NGINX IC와 별개 프로젝트 |
+| **A등급** | Envoy Gateway | Envoy 기반. 신규 프로젝트에 적합, 빠른 성장세 |
+| **A등급** | Istio | 서비스 메시 기반. 이미 Istio를 쓰고 있다면 자연스러운 선택 |
+| **A등급** | Cilium | eBPF 기반. CNI + Gateway API 통합 |
+| **B등급** (일부 미통과) | Traefik | 인기는 높지만 Gateway API 적합성에서 일부 미달 |
+| **B등급** | Kong | API Gateway 기반. 순수 Ingress 용도엔 과한 면 |
+
+핵심은 **Traefik이 B등급**이라는 점이다. drop-in 교체로는 가장 빠르지만, Gateway API 전환까지 고려하면 최선의 선택이 아닐 수 있다.
+
+**NGINX Gateway Fabric**은 이 조사에서 초기에 고려하지 않았던 옵션이다. F5 NGINX Ingress Controller(Ingress API용)와는 별개 프로젝트로, Gateway API를 위해 새로 만들어진 구현체다. A등급 통과에 NGINX 엔진 기반이라 기존 운영 경험을 살릴 수 있다.
+
+### 두 가지 전략
+
+이 조사를 통해 두 가지 전략이 명확해졌다.
+
+```mermaid
+graph TD
+    EOL["ingress-nginx EOL"]
+
+    EOL --> S1["전략 1: 빠른 교체<br/>(Ingress API 유지)"]
+    EOL --> S2["전략 2: 제대로 전환<br/>(Gateway API 이동)"]
+
+    S1 --> S1A["Traefik drop-in"]
+    S1 --> S1B["F5 NGINX IC"]
+    S1 --> S1C["ALB Direct"]
+
+    S2 --> S2A["NGINX Gateway Fabric"]
+    S2 --> S2B["Envoy Gateway"]
+    S2 --> S2C["Istio / Cilium"]
+
+    S1 -.->|"나중에 또 전환 필요"| S2
+
+    style EOL fill:#374151,stroke:#6b7280,color:#e5e7eb
+    style S1 fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style S2 fill:#1e293b,stroke:#475569,color:#cbd5e1
+    style S1A fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style S1B fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style S1C fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style S2A fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style S2B fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+    style S2C fill:#1e293b,stroke:#6b7280,color:#cbd5e1
+```
+
+| | 전략 1: 빠른 교체 | 전략 2: 제대로 전환 |
+|---|-----------------|------------------|
+| **접근** | 컨트롤러만 교체, Ingress API 유지 | Gateway API + HTTPRoute로 이동 |
+| **대표 선택지** | Traefik, F5 NGINX IC, ALB | NGINX Gateway Fabric, Envoy Gateway |
+| **작업량** | 적음 (1~11일) | 많음 (Ingress → HTTPRoute 전환) |
+| **장기 비용** | 재전환 필요할 수 있음 | 한 번에 끝 |
+| **리스크** | 낮음 (익숙한 패턴) | 높음 (새 API, 생태계 학습) |
+| **적합한 상황** | 데드라인 촉박, 안정성 우선 | 시간 여유, 장기 투자 가치 판단 |
+
+CyberArk 사례(앞서 실제 마이그레이션 사례 참고)가 전략 2의 실증이다. ~60개 파일 수정, 2주, 다운타임 0으로 Envoy Gateway로 전환했다.
+
 ## 시사점
 
 조사를 마치고 정리한 판단 기준은 다음과 같다.
 
 **데드라인이 핵심이다.** 3월까지 EOL 대응이 우선이고, 아키텍처 개선은 이후에 해도 된다. Path A/B는 1~3일, Path C는 7~11일이다.
 
-**annotation 사용이 적어 유리하다.** nginx annotation 6종, snippet 1건. 1,097개 Ingress에 89종 annotation을 쓰는 Skyscrapers와 비교하면 어떤 경로든 부담이 적다.
+**annotation 사용이 적어 유리하다.** nginx annotation 6종, snippet 1건. 1,097개 Ingress에 89종 annotation을 쓰는 Skyscrapers와 비교하면 어떤 경로든 부담이 적다. 이는 역설적으로 Gateway API 직접 전환에도 유리한 조건이다.
 
-**커뮤니티는 Traefik을 가장 많이 선택하고 있다.** 2단계 접근(Traefik drop-in → Gateway API 점진 전환)이 대세다. 다만 F5 paywall 문제에 해당되지 않는 환경이라면 F5도 여전히 유효하다.
+**"빠른 교체"와 "제대로 전환"은 트레이드오프다.** 커뮤니티에서는 Traefik drop-in이 가장 인기 있지만, Gateway API 적합성 테스트에서 B등급이라는 점은 무시할 수 없다. "지금 Traefik으로 빠르게 바꾸고 나중에 Gateway API로"가 정말 나중에 가능한지, 아니면 그냥 지금 Gateway API로 가는 게 총비용이 적은지 판단이 필요하다.
+
+**NGINX Gateway Fabric이라는 옵션이 있다.** 초기 조사에서 누락했던 선택지다. Gateway API A등급 통과, NGINX 엔진 기반, F5 전담 유지보수. Ingress API 호환은 아니지만, annotation 사용이 적은 환경에서는 전환 비용이 크지 않을 수 있다.
 
 **F5 실채택 사례는 찾지 못했다.** 커뮤니티에서 언급은 되지만 실제 후기가 없다. "당장은 쉽지만 장기적으로 재전환 필요"라는 의견이 다수다.
 
-**ALB는 장기적으로 가장 깔끔하다.** AWS 환경에서 이미 LB Controller가 설치되어 있다면 고려할 가치가 있다. 다만 Ingress 재작성이라는 물량이 있고, 데드라인이 촉박하면 부담이 된다.
+**ALB는 AWS 네이티브로 가장 깔끔하다.** 이미 LB Controller가 설치되어 있다면 고려할 가치가 있다. 다만 Ingress 재작성이라는 물량이 있고, 데드라인이 촉박하면 부담이 된다.
 
 아직 최종 경로를 결정하지 않았다. 이 글은 판단 재료를 모은 것이고, 실제 전환 작업과 그 과정에서의 삽질은 다음 글에서 다룰 예정이다.
 
@@ -427,3 +497,4 @@ Path A/B는 TGB 하나만 바꾸면 되므로 롤백이 매우 빠르다. Path C
 - [F5 Blog - The ingress-nginx Alternative](https://blog.nginx.org/blog/the-ingress-nginx-alternative-open-source-nginx-ingress-controller-for-the-long-term)
 - [Skyscrapers - EOL Migration](https://skyscrapers.eu/the-end-of-ingress-nginx-how-were-navigating-the-migration/)
 - [CyberArk - Gateway API Journey](https://developer.cyberark.com/blog/ingress-nginx-is-retiring-our-practical-journey-to-gateway-api/)
+- [요즘IT - ingress-nginx EOL, 어떤 Gateway API 구현체를 선택해야 할까?](https://yozm.wishket.com/magazine/detail/3559/)
