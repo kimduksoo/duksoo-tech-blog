@@ -36,24 +36,26 @@ DEV 클러스터 1개, PROD 클러스터 1개. 총 88개 Ingress가 ingress-ngin
 
 ### 네임스페이스 분포
 
-```mermaid
-pie title DEV Ingress 분포 (65개)
-    "dev-platform" : 26
-    "dev-crm" : 19
-    "beta-crm" : 7
-    "beta-platform" : 5
-    "shared" : 4
-    "infra (argocd 등)" : 4
-```
+**DEV (65개)**
 
-```mermaid
-pie title PROD Ingress 분포 (23개)
-    "prod-platform" : 8
-    "prod-crm" : 7
-    "prod-shared" : 2
-    "monitoring" : 2
-    "infra (argocd 등)" : 4
-```
+| Namespace | Count | 비율 |
+|-----------|-------|------|
+| dev-team-a | 26 | 40% |
+| dev-team-b | 19 | 29% |
+| staging-team-b | 7 | 11% |
+| staging-team-a | 5 | 8% |
+| shared | 4 | 6% |
+| infra | 4 | 6% |
+
+**PROD (23개)**
+
+| Namespace | Count | 비율 |
+|-----------|-------|------|
+| prod-team-a | 8 | 35% |
+| prod-team-b | 7 | 30% |
+| prod-shared | 2 | 9% |
+| monitoring | 2 | 9% |
+| infra | 4 | 17% |
 
 ### nginx Annotation 사용 현황
 
