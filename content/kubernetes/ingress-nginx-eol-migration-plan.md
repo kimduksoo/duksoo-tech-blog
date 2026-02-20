@@ -284,28 +284,28 @@ ingress-nginx Pod 레이어가 사라진다. ALB가 Host 헤더 기반으로 직
 
 | | Path A: Traefik | Path B: F5 NGINX IC | Path C: ALB Direct |
 |---|----------------|--------------------|--------------------|
-| **전략** | EOL 해결 + Gateway API 준비 | EOL 해결 (최소 변경) | EOL 해결 + 아키텍처 개선 |
+| **전략** | EOL 해결 (최소 변경) | EOL 해결 (최소 변경) | EOL 해결 + 아키텍처 개선 |
 | **구조 변경** | 없음 | 없음 | 있음 (nginx Pod 레이어 제거) |
 | **Ingress yaml 수정** | 거의 없음 (호환 모드) | 소폭 (annotation namespace 변경) | 전면 재작성 (88개) |
 | **작업량** | 1~3일 | 1~3일 | 7~11일 |
 | **3월 데드라인** | 여유 | 여유 | 빠듯 |
-| **Gateway API** | 기본 내장 | 별도 (NGINX Gateway Fabric) | AWS LB Controller v2.14+ |
+| **Gateway API** | 지원하나 B등급 | 별도 (NGINX Gateway Fabric) | AWS LB Controller v2.14+ |
 | **리스크** | 새 컨트롤러 학습, 호환 모드 검증 | 가장 낮음 (동일 엔진) | 작업량, IngressGroup 설계 |
-| **추후 재전환** | 불필요 (자체 Gateway API 지원) | 필요할 수 있음 | 불필요 |
+| **추후 재전환** | 필요할 수 있음 (Gateway API B등급) | 필요할 수 있음 | 불필요 |
 
-핵심 구분: **EOL 대응**(ingress-nginx 교체)과 **아키텍처 개선**(ALB 직접 연결)은 별개 문제다. 3월 데드라인에는 EOL 대응이 우선이다.
+IngressGroup이 있는 지금, ingress-nginx를 계속 쓸 이유가 거의 없다. 이상적으로는 ALB Direct(Path C)가 가장 깔끔하지만, 3월 데드라인 내 88개 Ingress 전면 재작성이 부담이면 Path A/B로 빠르게 EOL 해결 후 별도 전환도 가능하다.
 
 ### Path A: Traefik
 
 **장점:**
 - nginx annotation 호환 모드 (v3.5)로 기존 Ingress yaml 거의 그대로 사용
-- Gateway API 기본 내장 → 장기적으로 재전환 불필요
 - CNCF 생태계, 활발한 개발, 내장 대시보드
 
 **단점:**
 - 새 컨트롤러 학습 필요
 - 호환 모드의 실제 호환 범위를 검증해야 함
 - 고부하 시 NGINX 대비 성능 우려
+- Gateway API 적합성 B등급 → 장기적으로 재전환 필요할 수 있음
 
 ```mermaid
 flowchart TD
