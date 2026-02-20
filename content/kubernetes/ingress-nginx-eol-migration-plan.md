@@ -138,7 +138,7 @@ graph TD
 
 | 순위 | 선택지 | 반응 |
 |-----|-------|------|
-| 1위 | Traefik | nginx annotation 80% 호환 모드, CORS/rate limiting 네이티브 |
+| 1위 | Traefik | nginx annotation 호환 모드 (사용량 80% 커버, experimental), CORS/rate limiting 네이티브 |
 | 2위 | Gateway API (Envoy 등) | K8s 공식 장기 표준. 구현체 성숙도가 빠르게 올라오는 중 |
 | 3위 | F5 NGINX IC | 가장 쉬운 전환. OIDC/metrics 등 상용 paywall 우려 |
 | 4위 | ALB (AWS) | AWS 환경 유효. CORS/rate limiting 네이티브 미지원 |
@@ -148,7 +148,7 @@ graph TD
 - **Phase 1 (지금)**: Traefik nginx 호환 모드로 drop-in 교체 → EOL 해결
 - **Phase 2 (나중에)**: Gateway API + HTTPRoute로 점진 전환 → 아키텍처 개선
 
-단, Traefik의 Gateway API 호환성에 대해서는 주의가 필요하다. 후술하는 [Gateway API 구현체 평가](#gateway-api-구현체-평가)에서 다루지만, Traefik은 Gateway API 적합성 테스트에서 B등급을 받았다. "drop-in 교체는 빠르지만 Gateway API 전환까지 고려하면 Traefik이 최선은 아닐 수 있다"는 시각도 존재한다.
+단, Traefik의 Gateway API 호환성에 대해서는 주의가 필요하다. 후술하는 [Gateway API 구현체 평가](#gateway-api-구현체-평가)에서 다루지만, 요즘IT 기사 기준으로 Traefik은 Gateway API 적합성 테스트에서 B등급을 받았다 (다만 현재 공식 기준으로는 Conformant를 달성한 상태다). "drop-in 교체는 빠르지만 Gateway API 전환까지 고려하면 Traefik이 최선은 아닐 수 있다"는 시각도 존재한다.
 
 F5에 대해서는 "OSS 버전은 기본만 제공, OIDC/session affinity/상세 metrics는 NGINX Plus(상용) 필요"라는 우려가 다수였다.
 
@@ -289,9 +289,9 @@ ingress-nginx Pod 레이어가 사라진다. ALB가 Host 헤더 기반으로 직
 | **Ingress yaml 수정** | 거의 없음 (호환 모드) | 소폭 (annotation namespace 변경) | 전면 재작성 (88개) |
 | **작업량** | 1~3일 | 1~3일 | 7~11일 |
 | **3월 데드라인** | 여유 | 여유 | 빠듯 |
-| **Gateway API** | 지원하나 B등급 | 별도 (NGINX Gateway Fabric) | AWS LB Controller v2.14+ |
+| **Gateway API** | 지원 (기사 B등급, 현재 Conformant) | 별도 (NGINX Gateway Fabric) | AWS LB Controller v2.14+ |
 | **리스크** | 새 컨트롤러 학습, 호환 모드 검증 | 가장 낮음 (동일 엔진) | 작업량, IngressGroup 설계 |
-| **추후 재전환** | 필요할 수 있음 (Gateway API B등급) | 필요할 수 있음 | 불필요 |
+| **추후 재전환** | 필요할 수 있음 (기사 B등급, 현재 Conformant) | 필요할 수 있음 | 불필요 |
 
 IngressGroup이 있는 지금, ingress-nginx를 계속 쓸 이유가 거의 없다. 이상적으로는 ALB Direct(Path C)가 가장 깔끔하지만, 3월 데드라인 내 88개 Ingress 전면 재작성이 부담이면 Path A/B로 빠르게 EOL 해결 후 별도 전환도 가능하다.
 
@@ -305,7 +305,7 @@ IngressGroup이 있는 지금, ingress-nginx를 계속 쓸 이유가 거의 없�
 - 새 컨트롤러 학습 필요
 - 호환 모드의 실제 호환 범위를 검증해야 함
 - 고부하 시 NGINX 대비 성능 우려
-- Gateway API 적합성 B등급 → 장기적으로 재전환 필요할 수 있음
+- Gateway API 적합성: 기사 기준 B등급, 현재 Conformant 달성 (아래 주석 참고)
 
 ```mermaid
 flowchart TD
@@ -429,7 +429,7 @@ Path A/B는 TGB 하나만 바꾸면 되므로 롤백이 매우 빠르다. Path C
 
 앞서 정리한 3가지 경로는 모두 **Ingress API 기반**이다. 즉, 컨트롤러만 교체하고 기존 Ingress 리소스를 계속 사용하는 접근이다.
 
-하지만 다른 시각도 있다. Kubernetes Gateway API는 Ingress API의 공식 후속 표준으로, 이미 GA(v1.2)에 도달했다. "어차피 Ingress API도 결국 deprecated될 것이라면, 지금 바로 Gateway API로 가는 게 맞지 않느냐"는 주장이다.
+하지만 다른 시각도 있다. Kubernetes Gateway API는 Ingress API의 공식 후속 표준으로, 이미 GA(v1.4)에 도달했다. "어차피 Ingress API도 결국 deprecated될 것이라면, 지금 바로 Gateway API로 가는 게 맞지 않느냐"는 주장이다.
 
 ### Gateway API가 해결하는 문제
 
@@ -485,7 +485,7 @@ Gateway API는 "대규모 멀티팀 + 멀티클라우드 + 고급 라우팅"에�
 | **B등급** (일부 미통과) | Traefik | 인기는 높지만 Gateway API 적합성에서 일부 미달 |
 | **B등급** | Kong | API Gateway 기반. 순수 Ingress 용도엔 과한 면 |
 
-핵심은 **Traefik이 B등급**이라는 점이다. drop-in 교체로는 가장 빠르지만, Gateway API 전환까지 고려하면 최선의 선택이 아닐 수 있다.
+요즘IT 기사 기준으로 **Traefik이 B등급**이라는 점이 눈에 띈다. 다만 Gateway API 공식 implementations 페이지(v1.4.0 기준)에서는 Traefik이 **Conformant**를 달성한 상태다. Kong만 Partially Conformant(v1.2.1)로 남아 있다. 기사 작성 시점과 현재 시점의 차이가 있을 수 있으므로, 실제 도입 시에는 공식 페이지에서 최신 적합성을 확인해야 한다.
 
 **NGINX Gateway Fabric**은 이 조사에서 초기에 고려하지 않았던 옵션이다. F5 NGINX Ingress Controller(Ingress API용)와는 별개 프로젝트로, Gateway API를 위해 새로 만들어진 구현체다. A등급 통과에 NGINX 엔진 기반이라 기존 운영 경험을 살릴 수 있다.
 
@@ -557,3 +557,4 @@ CyberArk 사례(앞서 실제 마이그레이션 사례 참고)가 전략 2의 �
 - [Skyscrapers - EOL Migration](https://skyscrapers.eu/the-end-of-ingress-nginx-how-were-navigating-the-migration/)
 - [CyberArk - Gateway API Journey](https://developer.cyberark.com/blog/ingress-nginx-is-retiring-our-practical-journey-to-gateway-api/)
 - [요즘IT - ingress-nginx EOL, 어떤 Gateway API 구현체를 선택해야 할까?](https://yozm.wishket.com/magazine/detail/3559/)
+- [Gateway API - Official Implementations](https://gateway-api.sigs.k8s.io/implementations/)
