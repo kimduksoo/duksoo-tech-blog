@@ -39,7 +39,17 @@ EOL 대응을 논하기 전에, 왜 ingress-nginx가 필요했는지부터 짚�
 | ALB는 단순 L7 LB | ALB가 gRPC, WebSocket, 경로 기반 라우팅 네이티브 지원 |
 | ingress-nginx가 유일한 선택지 | AWS LB Controller가 성숙, 이미 설치되어 있음 |
 
-IngressGroup이 나오면서 ingress-nginx의 존재 이유가 사실상 사라졌다. ALB 1개로 여러 Ingress를 묶을 수 있으니, nginx Pod를 중간에 두고 라우팅할 필요가 없어진 것이다. 게다가 nginx Pod는 SPOF(단일 장애점)다. 이 Pod가 죽으면 전체 트래픽이 중단된다. ALB는 AWS 관리형으로 자체 고가용성을 보장한다.
+이 변화의 타임라인을 정리하면 다음과 같다.
+
+| 시점 | 이벤트 |
+|------|--------|
+| 2018-06 | ALB Ingress Controller가 SIG-AWS에 편입. **Ingress 1개 = ALB 1개**가 기본 동작 |
+| 2018-10 | [GitHub Issue #688](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/688) — "ALB 공유" feature request 등록. 120개+ ELB 관리 문제 제기 |
+| 2020-10 | **v2.0.0 GA 릴리스** — IngressGroup 정식 포함. 리네이밍: ALB Ingress Controller → AWS Load Balancer Controller |
+
+즉, **2018~2020년의 약 2년간** "Ingress 1개 = ALB 1개" 문제가 존재했고, 그 기간에 ingress-nginx가 비용 문제의 사실상 유일한 해결책이었다. 2020년 10월 IngressGroup이 GA되면서 이 문제가 해결됐지만, 이미 구축된 ingress-nginx 기반 아키텍처를 굳이 바꿀 이유가 없어서 그대로 남아 있었던 것이다.
+
+게다가 nginx Pod는 SPOF(단일 장애점)다. 이 Pod가 죽으면 전체 트래픽이 중단된다. ALB는 AWS 관리형으로 자체 고가용성을 보장한다.
 
 EOL이 아니더라도, **IngressGroup이 존재하는 지금 ingress-nginx를 계속 쓸 이유는 거의 없다.** EOL은 이 전환을 앞당기는 트리거일 뿐이다.
 
