@@ -82,7 +82,7 @@ Pod가 실제로 사용할 AWS 권한을 정의한다. 일반 IAM Role과 다른
 
 `Condition`의 `sub` 값이 **"이 네임스페이스의 이 ServiceAccount만 이 Role을 사용할 수 있다"**는 제약이다.
 
-### 4. STS (Security Token Service)
+### 4. AWS STS (Security Token Service)
 
 실제 토큰 교환을 수행하는 AWS 서비스다. JWT 토큰을 받아서 검증하고, 임시 자격 증명(Access Key + Secret Key + Session Token)을 발급한다.
 
