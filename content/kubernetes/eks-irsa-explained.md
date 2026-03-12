@@ -375,4 +375,4 @@ IRSA는 결국 다음 한 문장으로 요약된다:
 
 - [AWS 공식: IRSA 기술 개요](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
 - [AWS 공식: EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
-- [terraform-aws-modules/iam IRSA 모듈](https://registry.terraform.io/modules/terraform-aws-modules/iam/aws/latest/submodules/iam-role-for-service-accounts-eks)
+- [terraform-aws-modules/iam IRSA 모듈](https://github.com/terraform-aws-modules/terraform-aws-iam/tree/master/modules/iam-role-for-service-accounts)
