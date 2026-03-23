@@ -195,11 +195,11 @@ GraalVM Native Image는 AOT 컴파일 특성상 런타임 바이트코드 조작
 
 현재 환경에 OTel Operator 도입이 적합한지 확인하는 체크리스트다.
 
-- [ ] 3개 이상의 앱에 OpenTelemetry Agent가 적용되어 있는가?
-- [ ] 앱마다 Agent 버전이 다른가? (파편화)
-- [ ] 새 앱 온보딩 시 Init Container / 환경변수 설정을 복붙하고 있는가?
-- [ ] Agent 버전 업그레이드 시 앱마다 개별 수정이 필요한가?
-- [ ] Java 외에 Python, Node.js 등 다른 언어 앱에도 관측성이 필요한가?
+- 3개 이상의 앱에 OpenTelemetry Agent가 적용되어 있는가?
+- 앱마다 Agent 버전이 다른가? (파편화)
+- 새 앱 온보딩 시 Init Container / 환경변수 설정을 복붙하고 있는가?
+- Agent 버전 업그레이드 시 앱마다 개별 수정이 필요한가?
+- Java 외에 Python, Node.js 등 다른 언어 앱에도 관측성이 필요한가?
 
 3개 이상 해당된다면, OTel Operator 도입을 검토할 시점이다.
 
