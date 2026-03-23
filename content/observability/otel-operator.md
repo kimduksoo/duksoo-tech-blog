@@ -1,5 +1,5 @@
 ---
-title: "Init Container에서 OTel Operator로 — 관측성 관리의 베스트 프랙티스"
+title: "Init Container에서 OTel Operator로 — 관측성 자동화의 다음 단계"
 weight: 2
 description: "OpenTelemetry Agent를 앱마다 수동 설정하는 방식에서, OTel Operator로 자동 주입하는 방식으로 전환하는 이유와 방법. 관심사 분리, 버전 중앙 관리, 멀티 언어 지원까지."
 tags: ["OpenTelemetry", "OTel Operator", "Kubernetes", "Observability", "자동 계측"]
