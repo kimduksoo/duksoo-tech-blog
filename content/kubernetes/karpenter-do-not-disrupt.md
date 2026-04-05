@@ -133,18 +133,19 @@ disruption:
   consolidationPolicy: WhenEmptyOrUnderutilized  # 유휴 노드도 정리 대상
   consolidateAfter: 300s
   budgets:
-    - nodes: "1"             # 동시에 1대만 drain
-      schedule: "0 19 * * *" # UTC 19시 = KST 새벽 4시
-      duration: 2h           # 4시~6시만 허용
-    - nodes: "0"             # 나머지 시간 차단
+    - nodes: "0"              # 업무시간 차단 (schedule 창에서만 활성)
+      schedule: "0 21 * * *"  # UTC 21시 = KST 06시부터 차단 시작
+      duration: "22h"         # 22시간 차단 (KST 06시~04시)
+    - nodes: "1"              # 기본: 1대까지 허용 (항상 활성)
 ```
 
-budgets에 schedule과 duration을 지정하면, 특정 시간대에만 consolidation을 허용할 수 있다. 여러 budget이 있으면 가장 제한적인 조건이 적용된다.
+budgets의 핵심은 **"차단할 시간에 `nodes: 0` + schedule을 거는 것"**이다. 여러 budget이 활성화되면 가장 제한적인 값(최솟값)이 적용되기 때문에, schedule 없이 `nodes: "0"`을 두면 항상 0이 되어 consolidation이 영원히 차단된다.
+
+올바른 패턴은 다음과 같다.
 
 ```
-00:00~03:59  → budget 매칭: nodes "0" → consolidation 차단
-04:00~05:59  → budget 매칭: nodes "1" → 1대씩 유휴 노드 정리
-06:00~23:59  → budget 매칭: nodes "0" → consolidation 차단
+KST 04:00~06:00  → "0" budget 비활성, "1" budget만 활성 → 1대씩 정리 허용
+KST 06:00~04:00  → "0" budget 활성 + "1" budget 활성 → min(0, 1) = 0 → 차단
 ```
 
 ### Pod 수준 + NodePool 수준 조합
