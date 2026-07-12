@@ -3,11 +3,11 @@ title: "LangGraph란 무엇인가: Claude Agent SDK와 무엇이 다른가"
 weight: 4
 draft: false
 description: "LangGraph의 핵심 개념(State, Node, Edge, 체크포인팅, human-in-the-loop, 멀티 에이전트)을 공식 문서 기준으로 정리하고, 이전에 쓰던 Claude Agent SDK와 접근 방식이 어떻게 다른지 비교한다."
-tags: ["AI", "LangGraph", "Claude", "에이전트", "오케스트레이션"]
-keywords: ["LangGraph", "Claude Agent SDK", "StateGraph", "agent orchestration", "AI 에이전트 프레임워크", "멀티 에이전트", "human-in-the-loop", "checkpointing"]
+tags: ["AI", "LangGraph", "Claude", "에이전트", "오케스트레이션", "에이전트 프레임워크"]
+keywords: ["LangGraph", "Claude Agent SDK", "StateGraph", "agent orchestration framework", "agent framework", "workflow engine", "AI 에이전트 프레임워크", "멀티 에이전트", "human-in-the-loop", "checkpointing"]
 ---
 
-에이전트는 "똑똑한 모델"만으로 완성되지 않는다. 언제 무엇을 하고, 실패하면 어디서 다시 시작하고, 사람이 언제 개입하는지를 정하는 것은 모델이 아니라 그 위의 오케스트레이션 계층이다. LangGraph는 바로 그 계층을 다루는 프레임워크다.
+에이전트는 "똑똑한 모델"만으로 완성되지 않는다. 언제 무엇을 하고, 실패하면 어디서 다시 시작하고, 사람이 언제 개입하는지를 정하는 것은 모델이 아니라 그 위의 오케스트레이션 계층이다. LangGraph는 바로 그 계층을 다루는 프레임워크, 이른바 **에이전트 오케스트레이션 프레임워크(agent orchestration framework)** 다.
 
 그동안 인프라 자동화는 Claude Agent SDK로 만들어 왔다. LangGraph를 들여다보면서 가장 먼저 눈에 띈 것은 두 도구가 에이전트를 다루는 방식 자체가 다르다는 점이었다. 이 글에서는 LangGraph가 무엇인지 공식 문서를 기준으로 정리하고, 그 과정에서 Claude Agent SDK와 접근 방식이 어떻게 다른지 짚는다.
 
@@ -19,6 +19,8 @@ LangGraph의 공식 정의는 "long-running, stateful agent를 만들기 위한 
 - **stateful**: 에이전트의 상태를 명시적으로 정의하고, 그 상태가 노드를 거치며 어떻게 변하는지를 그래프로 표현한다.
 
 한마디로 LangGraph는 **에이전트의 제어 흐름을 상태 그래프(state graph)로 모델링하는 도구**다. "알아서 판단하는 모델"이 아니라 "개발자가 설계한 흐름 위에서 동작하는 에이전트"를 만들 때 쓴다.
+
+이런 종류의 도구를 **에이전트 오케스트레이션 프레임워크(agent orchestration framework)** 라고 부른다. 여러 단계, 여러 에이전트, 상태와 흐름을 조율(orchestrate)하는 계층을 가리키는 이름이다. 넓게는 LangGraph, CrewAI, AutoGen 같은 것들이 모두 **에이전트 프레임워크(agent framework)** 라는 상위 카테고리에 속하고, 그중 LangGraph는 특히 흐름 조율에 초점을 둔 오케스트레이션 계열이다. 상태 그래프 기반이라 **워크플로우 엔진(workflow engine)** 의 성격도 함께 갖는다.
 
 ## 세 가지 핵심 프리미티브
 
