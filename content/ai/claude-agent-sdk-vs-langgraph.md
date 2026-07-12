@@ -1,7 +1,7 @@
 ---
 title: "Claude Agent SDK에서 LangGraph로: 프레임워크를 바꾸기 전에 물어야 할 것"
 weight: 4
-draft: true
+draft: false
 description: "Claude Agent SDK로 인프라 자동화를 해오다 LangGraph를 검토했다. 더 전문가스러운 스택이 아니라, 워크플로우의 성격이 판단 기준이었다는 결론과 그 근거를 정리한다."
 tags: ["AI", "Claude", "LangGraph", "에이전트", "자동화", "구축도입기"]
 keywords: ["Claude Agent SDK", "LangGraph", "agent orchestration", "AI 에이전트 프레임워크", "멀티 에이전트", "human-in-the-loop"]
