@@ -1,11 +1,11 @@
 {{- if default true .Site.Params.geekdocDarkModeToggle }}
-  {{/* 기본 색상 테마를 dark로 지정. 방문자가 토글로 명시적으로 선택한 값은 localStorage에 저장되어 유지된다. */}}
+  {{/* 기본 색상 테마를 light로 지정. 방문자가 토글로 명시적으로 선택한 값은 localStorage에 저장되어 유지된다. */}}
   <script>
     (function () {
       try {
         var key = "hugo-geekdoc.color-theme";
         if (localStorage.getItem(key) === null) {
-          localStorage.setItem(key, JSON.stringify("dark"));
+          localStorage.setItem(key, JSON.stringify("light"));
         }
       } catch (e) {}
     })();
