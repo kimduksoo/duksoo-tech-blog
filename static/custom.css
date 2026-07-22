@@ -16,13 +16,79 @@
   --footer-link-color: #94a3b8;
   --footer-link-color-visited: #94a3b8;
   --body-font-color: #e2e8f0;
-  /* Code block - light background */
-  --code-background: #f1f5f9;
-  --code-accent-color: #e2e8f0;
-  --code-accent-color-lite: #e2e8f0;
-  --code-font-color: #1e293b;
-  --code-copy-background: #f1f5f9;
-  --code-copy-font-color: #475569;
+  /* Code block - terminal (dark) background */
+  --code-background: #1e1e2e;
+  --code-accent-color: #181825;
+  --code-accent-color-lite: #181825;
+  --code-font-color: #e2e8f0;
+  --code-copy-background: #313244;
+  --code-copy-font-color: #cdd6f4;
+  --code-copy-border-color: #45475a;
+}
+
+/* Light mode - keep code blocks terminal-styled too for consistency */
+:root,
+:root[color-theme="light"] {
+  --code-background: #1e1e2e;
+  --code-accent-color: #181825;
+  --code-accent-color-lite: #181825;
+  --code-font-color: #e2e8f0;
+  --code-copy-background: #313244;
+  --code-copy-font-color: #cdd6f4;
+  --code-copy-border-color: #45475a;
+}
+
+/* ── Terminal-style code blocks ───────────────────────────── */
+/* 코드 컨테이너에 터미널 상단 바 + 신호등 점을 올린다 */
+.gdoc-post__codecontainer {
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: var(--code-background);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  border: 1px solid #313244;
+}
+
+/* 상단 타이틀 바 (신호등) */
+.gdoc-post__codecontainer::before {
+  content: "";
+  display: block;
+  height: 34px;
+  background:
+    radial-gradient(circle 6px at 20px 17px, #ff5f56 98%, transparent 100%),
+    radial-gradient(circle 6px at 40px 17px, #ffbd2e 98%, transparent 100%),
+    radial-gradient(circle 6px at 60px 17px, #27c93f 98%, transparent 100%),
+    #181825;
+  border-bottom: 1px solid #313244;
+}
+
+/* 상단 바가 생겼으니 코드 영역 안쪽 여백 정리 */
+.gdoc-post__codecontainer .highlight,
+.gdoc-post__codecontainer .highlight > div,
+.gdoc-post__codecontainer pre.chroma {
+  margin: 0;
+  border-radius: 0;
+  background-color: var(--code-background) !important;
+}
+
+.gdoc-post__codecontainer .highlight {
+  padding: 0.6rem 0.2rem 0.8rem;
+}
+
+/* 복사 버튼을 상단 바 위로 (신호등과 겹치지 않게 오른쪽) */
+.gdoc-post__codecontainer > .gdoc-post__codecopy {
+  top: 6px;
+  right: 8px;
+}
+
+/* 라인 넘버 컬럼도 터미널 톤으로 */
+:root .chroma .lntable td:first-child code,
+:root[color-theme="dark"] .chroma .lntable td:first-child code {
+  background-color: transparent;
+  color: #6c7086;
+}
+:root .chroma .ln,
+:root[color-theme="dark"] .chroma .ln {
+  color: #6c7086;
 }
 
 /* Mermaid diagram - base styles */
