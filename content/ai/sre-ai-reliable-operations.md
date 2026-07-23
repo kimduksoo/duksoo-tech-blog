@@ -8,7 +8,7 @@ keywords: ["AI SRE", "AI 운영 자동화", "SRE autonomy levels", "AI guardrail
 
 운영에서 가장 비싼 것은 다운타임이 아니라 잘못된 자동화다. 사람이 실수하면 한 번이지만, 자동화가 실수하면 실수를 자동화한다.
 
-Google SRE가 최근 공개한 [AI Engineering for Reliable Operations](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/)를 읽으면서 계속 밑줄을 친 대목이 이거였다. AI가 코드 생성을 몇 배씩 빠르게 만드는 지금, "AI에게 운영을 맡길 것이냐"는 이미 정해진 질문이다. 진짜 질문은 **"어떻게 맡겨야 사고가 안 나느냐"**다.
+Google SRE가 최근 공개한 [AI Engineering for Reliable Operations](https://sre.google/resources/practices-and-processes/ai-engineering-reliable-operations/)를 읽으면서 계속 밑줄을 친 대목이 이거였다. AI가 코드 생성을 몇 배씩 빠르게 만드는 지금, "AI에게 운영을 맡길 것이냐"는 이미 정해진 질문이다. 진짜 질문은 **어떻게 맡겨야 사고가 안 나느냐**다.
 
 이 글에서는 그 문서의 핵심 프레임워크: 자율성 단계 모델, 안전 가드레일, 평가 파이프라인, 실제 배포 시스템을 정리한다. 그리고 이게 왜 우리 같은 인프라 팀의 운영 규칙과 그대로 겹치는지까지 짚는다.
 
@@ -43,11 +43,11 @@ flowchart TB
     L3["L3 · High<br/>well-defined 시나리오는<br/>AI가 자율 실행"] --> L4
     L4["L4 · Full<br/>인시던트 전 생애주기를<br/>AI가 독립 관리"]
 
-    style L0 fill:#374151,stroke:#6b7280,color:#e5e7eb
-    style L1 fill:#3b1c1c,stroke:#dc2626,color:#fff
-    style L2 fill:#3b2f1c,stroke:#d97706,color:#fff
-    style L3 fill:#1a2e1a,stroke:#2d5a2d,color:#fff
-    style L4 fill:#16a34a,stroke:#4ade80,color:#fff
+    style L0 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style L1 fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style L2 fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style L3 fill:#cfe0f9,stroke:#2563eb,color:#0f172a
+    style L4 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
 ```
 
 여기서 중요한 건 단계 자체가 아니라 **승급 조건**이다. 시간이 지났다고 L1이 L2가 되지 않는다. 오직 **Golden Data(사람이 검증한 인시던트 해결 기록)**를 상대로 지속적 성공(sustained success)을 입증했을 때만 다음 단계로 올라간다.
@@ -81,13 +81,13 @@ flowchart LR
     EVAL --> UP["자율성 승급"]
     EVAL -. "미달 시 재학습" .-> INC
 
-    style INC fill:#1e293b,stroke:#475569,color:#fff
-    style HUMAN fill:#1e293b,stroke:#475569,color:#fff
-    style B fill:#374151,stroke:#6b7280,color:#e5e7eb
-    style S fill:#3b2f1c,stroke:#d97706,color:#fff
-    style G fill:#16a34a,stroke:#4ade80,color:#fff
-    style EVAL fill:#1a2e1a,stroke:#2d5a2d,color:#fff
-    style UP fill:#16a34a,stroke:#4ade80,color:#fff
+    style INC fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style HUMAN fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style B fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style S fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style G fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style EVAL fill:#cfe0f9,stroke:#2563eb,color:#0f172a
+    style UP fill:#e7f6ec,stroke:#22a15d,color:#0f172a
 ```
 
 시스템은 계속 바뀌는데 AI가 옛 지식에 머물면 판단이 어긋난다(drift). 매일 실제 인시던트로 시험을 보는 것은 그 drift를 지속적으로 잡아내기 위한 장치다.
@@ -128,12 +128,12 @@ flowchart TB
     RB(["Red Button<br/>긴급 정지"]) -. "언제든 중단" .-> P2
     RB -. "언제든 중단" .-> P3
 
-    style A fill:#1e293b,stroke:#475569,color:#fff
-    style P1 fill:#1a2e1a,stroke:#2d5a2d,color:#fff
-    style P2 fill:#1a2e1a,stroke:#2d5a2d,color:#fff
-    style P3 fill:#1a2e1a,stroke:#2d5a2d,color:#fff
-    style OK fill:#16a34a,stroke:#4ade80,color:#fff
-    style RB fill:#3b1c1c,stroke:#dc2626,color:#fff
+    style A fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style P1 fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style P2 fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style P3 fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style OK fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style RB fill:#fdeaea,stroke:#e05656,color:#0f172a
 ```
 
 핵심은 2단계의 **concurrent action check**다. 같은 자원에 다른 에이전트나 사람의 작업이 동시에 진행 중이면 충돌을 감지해 막는다. 그리고 어느 단계에서든 **Red Button**으로 emergency stop이 가능하다.
