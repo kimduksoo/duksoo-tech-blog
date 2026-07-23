@@ -14,7 +14,7 @@ Google SRE가 최근 공개한 [AI Engineering for Reliable Operations](https://
 
 ## 진짜 문제는 AI의 성능이 아니다
 
-가장 흔한 오해부터 걷어내자. AI 운영의 어려움은 "AI가 충분히 똑똑한가"가 아니다. 문제는 **AI가 틀렸을 때 그 틀림이 프로덕션에 얼마나 번지느냐(blast radius)**다.
+가장 흔한 오해부터 걷어내자. AI 운영의 어려움은 "AI가 충분히 똑똑한가"가 아니다. 문제는 **AI가 틀렸을 때 그 틀림이 프로덕션에 얼마나 번지느냐**, 즉 blast radius다.
 
 문서가 던지는 명제는 단호하다.
 
@@ -50,7 +50,7 @@ flowchart TB
     style L4 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
 ```
 
-여기서 중요한 건 단계 자체가 아니라 **승급 조건**이다. 시간이 지났다고 L1이 L2가 되지 않는다. 오직 **Golden Data(사람이 검증한 인시던트 해결 기록)**를 상대로 지속적 성공(sustained success)을 입증했을 때만 다음 단계로 올라간다.
+여기서 중요한 건 단계 자체가 아니라 **승급 조건**이다. 시간이 지났다고 L1이 L2가 되지 않는다. 오직 **Golden Data**(사람이 검증한 인시던트 해결 기록)를 상대로 지속적 성공(sustained success)을 입증했을 때만 다음 단계로 올라간다.
 
 이게 왜 중요한가. 전통적 rollout은 고정 soak time(일정 시간 관찰 후 통과) 방식을 쓴다. 하지만 자율성 승급을 시간 기반으로 두면 실제 신뢰도와 무관하게 권한이 올라간다. 문서는 이 gate를 엄격히(strict) 두어, **신뢰의 근거가 데이터로 남고 감사 가능하게** 만든다.
 
@@ -66,7 +66,7 @@ AI가 내놓은 답을 그냥 신뢰하지 않는다. 문서는 데이터를 품
 | **Silver** | 프로그램이 생성 + 신뢰도 보정(calibrated confidence) | 중간 |
 | **Gold** | 전문가가 직접 검증한 해결 기록 | 최상 (승급 기준) |
 
-그리고 매일 밤 **Nightly Evals**를 돌린다. 두 채점 방식을 결합한다. 하나는 **LLM-as-Judge**(다른 LLM이 심판이 되어 답의 품질을 스코어링), 또 하나는 **deterministic validation**(기계적으로 정답 일치 검증)이다.
+그리고 매일 밤 **Nightly Evals**를 돌린다. 두 채점 방식을 결합한다. 하나는 **LLM-as-Judge**로 다른 LLM이 심판이 되어 답의 품질을 스코어링하고, 또 하나는 **deterministic validation**으로 기계적으로 정답 일치를 검증한다.
 
 특히 영리한 부분은 Golden Data 수집 방식이다. 사람이 따로 시간 내서 라벨링하는 게 아니라, **평상시 인시던트 대응 워크플로우에서 자연스럽게 Golden label을 기여**한다. 그래서 annotation fatigue(라벨링 피로)에 빠지지 않는다.
 
@@ -117,7 +117,7 @@ flowchart LR
 | **Mandatory Dry-Run** | 프로덕션 변경 API는 결과 예측(consequence prediction) 지원 필수 |
 | **Zero-Trust Actuation** | 에이전트는 control plane 경유로만 실행. 단독으로 outage를 낼 수 없는 구조 |
 
-이 Zero-Trust Actuation을 실제로 담당하는 control plane이 **Actus(Mitigation Safety Verification Agent)**다. 모든 자율 변경을 세 단계로 검증해 통과시킨다.
+이 Zero-Trust Actuation을 실제로 담당하는 control plane이 **Actus**(Mitigation Safety Verification Agent)다. 모든 자율 변경을 세 단계로 검증해 통과시킨다.
 
 ```mermaid
 flowchart TB
