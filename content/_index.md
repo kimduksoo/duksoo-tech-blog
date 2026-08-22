@@ -3,7 +3,7 @@ title: "duksoo.dev"
 geekdocNav: false
 ---
 
-Cloud Engineer, 8년차. <br>NAVER Cloud에서 System Engineer로 Private Cloud를, Kakao에서 플랫폼 개발자로 OpenStack 플랫폼을 경험했습니다. <br>현재는 아정당에서 AWS 기반 인프라를 운영하고 있습니다.
+Cloud Infrastructure & SRE Engineer, 11년차. <br>NAVER Cloud에서 Private Cloud 시스템을, Kakao에서 OpenStack 플랫폼을 다뤘고, 프리랜서로 서비스를 직접 만들고 운영했습니다. <br>현재는 42dot에서 AI 학습용 데이터 파이프라인을 담당하며, 운영 업무에 LLM 에이전트를 도입하는 일을 병행하고 있습니다.
 
 이 블로그는 일하면서 겪은 이슈와 해결 과정을 기록합니다.
 
