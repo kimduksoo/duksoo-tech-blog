@@ -7,7 +7,7 @@ Cloud Infrastructure & SRE Engineer, 11년차. <br>NAVER Cloud에서 Private Clo
 
 이 블로그는 일하면서 겪은 이슈와 해결 과정을 기록합니다.
 
-**Skills** <br>AWS, GCP, NCP, Kubernetes, Terraform, Helm, ArgoCD, OpenStack, Xenserver, Bare Metal, Grafana, LGTM, Prometheus, Datadog, Python, Linux
+**Skills** <br>AWS, GCP, NCP, Kubernetes, Terraform, Helm, ArgoCD, OpenStack, Xenserver, Bare Metal, Grafana, LGTM, Prometheus, Datadog, Python, Linux, LangGraph, Langfuse, Claude Agent SDK
 
 **Contact** <br>nong1000@naver.com
 

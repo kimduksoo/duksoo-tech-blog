@@ -1,6 +1,6 @@
 # duksoo.dev
 
-Cloud Engineer의 기술 블로그 소스. [duksoo-tech-blog.pages.dev](https://duksoo-tech-blog.pages.dev/)로 배포된다.
+클라우드 인프라·SRE 기술 블로그 소스. [duksoo-tech-blog.pages.dev](https://duksoo-tech-blog.pages.dev/)로 배포된다.
 
 ## Stack
 

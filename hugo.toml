@@ -5,7 +5,7 @@ theme = 'hugo-geekdoc'
 
 # Geekdoc 설정
 [params]
-  description = "Cloud Engineer의 기술 블로그"
+  description = "클라우드 인프라와 SRE, AI 에이전트 운영 기록. 일하면서 겪은 이슈와 해결 과정을 남깁니다."
   geekdocLogo = "logo.svg"
 
   # 검색 활성화
