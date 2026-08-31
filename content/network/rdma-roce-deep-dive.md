@@ -1268,6 +1268,70 @@ flowchart TB
 2. **QP 개수 늘리기**: NCCL의 `NCCL_IB_QPS_PER_CONNECTION` 을 올려 flow를 인위적으로 늘린다
 3. **Adaptive Routing**: 스위치가 링크 부하를 보고 동적으로 경로를 바꾼다. InfiniBand와 NVIDIA Spectrum-X가 지원한다
 
+### 10.6 토폴로지 설계: 수렴비와 레일
+
+포트 설정을 아무리 잘해도 **토폴로지가 잘못되면 회복할 수 없다.** 설계 단계에서 정해지는 것이라 나중에 손대기가 가장 어렵다.
+
+**수렴비 (oversubscription ratio)**
+
+leaf 스위치에서 서버로 내려가는 대역폭과 spine으로 올라가는 대역폭의 비율이다.
+
+```text
+서버 방향 32포트 x 100G = 3.2T
+spine 방향  8포트 x 100G = 0.8T
+                        → 수렴비 4:1
+```
+
+일반 웹 서비스라면 3:1이나 4:1이 흔하다. 트래픽이 대부분 랙 안에서 끝나고 동시에 몰리지 않기 때문이다.
+
+**분산 학습은 다르다.** all-reduce는 모든 노드가 **동시에** 랙을 넘어 통신한다. 수렴비가 곧 성능 상한이 된다. 4:1이면 노드 간 실효 대역폭이 1/4로 떨어지고, 동기화 장벽 때문에 그 손해가 매 스텝 누적된다.
+
+> GPU 학습 패브릭은 **1:1 비수렴(non-blocking)이 기본 목표**다. 여기서 아끼면 GPU가 노는 시간으로 되돌아온다.
+
+**레일 최적화 (rails-optimized) 구성**
+
+GPU 8장 노드에 NIC이 8장 있다고 하자. 배선 방법이 둘이다.
+
+```mermaid
+flowchart TB
+    subgraph TRAD["전통적 배선 · 노드의 NIC들이 같은 leaf로"]
+        direction LR
+        T1["노드 1의 NIC 1~8"] --> TL1["Leaf 1"]
+        T2["노드 2의 NIC 1~8"] --> TL2["Leaf 2"]
+        TL1 --> TS["Spine"]
+        TL2 --> TS
+    end
+    style TS fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+```
+
+```mermaid
+flowchart TB
+    subgraph RAILS["레일 최적화 · 같은 번호 NIC끼리 같은 leaf로"]
+        direction LR
+        R1["모든 노드의 NIC 1"] --> RL1["Leaf 1 · 레일 1"]
+        R2["모든 노드의 NIC 2"] --> RL2["Leaf 2 · 레일 2"]
+        R3["모든 노드의 NIC 8"] --> RL8["Leaf 8 · 레일 8"]
+    end
+    style RL1 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style RL2 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style RL8 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+```
+
+레일 최적화의 이점은 **all-reduce 트래픽이 spine을 안 거친다는 것**이다. GPU 0끼리, GPU 1끼리 통신하는 게 집합 통신의 주된 패턴인데, 같은 번호 GPU가 전부 같은 leaf에 붙어 있으면 leaf 안에서 끝난다.
+
+| | 전통적 배선 | 레일 최적화 |
+|---|---|---|
+| 같은 번호 GPU 간 통신 | leaf → spine → leaf | **leaf 하나만 거침** |
+| spine 부하 | 높다 | 크게 줄어든다 |
+| 홉 수 | 3홉 | 1홉 |
+| 배선 복잡도 | 단순 | 규칙을 지켜야 한다 |
+
+홉이 줄면 지연도 줄고, 5.3에서 본 PAUSE 전파 구간도 짧아진다. 혼잡이 spine까지 번질 일이 줄어드는 것이다.
+
+**버퍼 용량도 설계 항목이다**
+
+스위치 칩마다 포트당 버퍼가 다르다. 얕은 버퍼(shallow buffer) 칩은 단가가 싸지만 incast에서 금방 XOFF 임계치에 닿아 PFC가 자주 발동한다. 5.4의 headroom도 이 버퍼에서 떼어 쓴다. **GPU 패브릭용 스위치를 고를 때 포트 수와 속도만 보지 말고 버퍼 용량을 같이 봐야 한다.**
+
 ---
 
 ## 11. 검증과 트러블슈팅
@@ -1309,7 +1373,43 @@ ib_write_bw -d mlx5_0 -x 3 -q 8 -F --report_gbits <서버IP>
 all_reduce_perf -b 8 -e 8G -f 2 -g 8
 ```
 
-### 11.3 카운터로 읽는 증상
+### 11.3 이 정도면 정상인가
+
+측정은 했는데 합격인지 미달인지 모르면 소용이 없다. **100G 링크 기준 대략의 기대치**는 이렇다.
+
+| 측정 | 정상 범위 | 이 아래면 |
+|---|---|---|
+| `ib_write_bw` (대용량 메시지) | **90~97 Gbps** | 아래 진단표 참고 |
+| `ib_send_lat` (왕복 절반) | **2~4 μs** (IB는 1~2 μs) | C-state, ASPM, NUMA 의심 |
+| `all_reduce_perf` busbw (노드당 100G 1장) | **85~95 Gbps** | NCCL이 RDMA를 안 타는지부터 확인 |
+
+이더넷 인코딩과 헤더 오버헤드가 있어 100G에서 100 Gbps는 나오지 않는다. **97 Gbps면 사실상 라인레이트**로 봐도 된다.
+
+`all_reduce_perf` 결과에서는 **algbw가 아니라 busbw를 봐야 한다.** algbw는 노드 수에 따라 달라지지만 busbw는 실제 링크 사용률을 나타내므로 회선 속도와 직접 비교할 수 있다.
+
+**숫자가 낮을 때 의심 순서**
+
+| 관측 | 유력한 원인 |
+|---|---|
+| **절반 정도** (100G에서 ~50) | PCIe 슬롯이 x8. `lspci -vv` 로 `LnkSta` 확인. 또는 PCIe Gen3에 듀얼포트 100G |
+| **70~80%** | NUMA 미정렬. 8.4대로 NIC과 프로세스를 같은 노드에 고정 |
+| **대역폭은 나오는데 지연이 튄다** | C-state, ASPM, 주파수 스케일링. 8.2 확인 |
+| **작은 메시지만 느리다** | 정상이다. 소메시지는 지연 지배 구간이라 대역폭이 안 나온다 |
+| **노드를 늘리면 급락** | 이 글의 주제다. PFC·ECN 설정 누락 구간을 찾아야 한다 |
+| **`NET/Socket` 로그** | RDMA를 아예 안 타고 있다. `NCCL_IB_HCA`, GID index 확인 |
+
+**설치 시점의 숫자를 기록해두는 것이 중요하다.** 위 범위는 일반론이고, 실제 판단 기준은 **정상 상태에서 측정한 본인 환경의 값**이다. 나중에 성능이 이상할 때 비교할 대상이 없으면 원인을 좁힐 수 없다.
+
+```bash
+# 설치 직후 baseline 기록
+{ date; ibv_devinfo | grep -E 'active_mtu|active_speed'
+  lspci -vv | grep -A2 'Mellanox\|Broadcom' | grep LnkSta
+  ib_write_bw -d $RDEV -x 3 -F --report_gbits $PEER
+  all_reduce_perf -b 8 -e 8G -f 2 -g 8
+} > baseline_$(date +%F).txt
+```
+
+### 11.4 카운터로 읽는 증상
 
 ```bash
 IFACE=ens1f0
@@ -1346,6 +1446,64 @@ cat /sys/class/infiniband/mlx5_0/ports/1/hw_counters/*
 5. GID 인덱스를 v1으로 잡아 L3를 못 넘음
 6. NUMA 미정렬로 대역폭이 절반만 나옴
 7. 방화벽에서 UDP 4791 차단
+
+### 11.5 장애가 나면 어떻게 되나
+
+케이블이 빠지거나 스위치가 재부팅되면 RDMA 연결은 어떻게 되는가. 운영에 들어가면 반드시 겪는데, 동작이 TCP와 많이 다르다.
+
+**먼저 QP가 버티는 구간이 있다**
+
+링크가 잠깐 끊겨도 바로 죽지는 않는다. RC QP에는 타임아웃과 재시도 횟수가 설정되어 있고, 그 안에 복구되면 통신이 이어진다.
+
+| 파라미터 | 의미 |
+|---|---|
+| `qp_timeout` | ACK를 기다리는 시간. 실제 시간은 `4.096μs × 2^timeout` |
+| `retry_cnt` | 타임아웃 시 재시도 횟수. 최대 7 |
+| `rnr_retry` | 수신 측이 준비 안 됐을 때(RNR) 재시도 횟수 |
+
+이 값을 넘기면 **QP가 ERR 상태로 떨어진다.** 2.3의 상태 머신에서 봤듯 ERR에서는 복구 경로가 없다. **RESET으로 내렸다가 INIT부터 다시 올려야 한다.**
+
+여기가 TCP와 결정적으로 다른 지점이다. TCP는 커널이 알아서 재전송하고 연결을 유지하지만, **RDMA는 QP가 죽으면 애플리케이션이 직접 다시 만들어야 한다.** 커널이 대신 해주지 않는다.
+
+**그래서 워크로드마다 결과가 갈린다**
+
+| 워크로드 | 장애 시 동작 |
+|---|---|
+| **NCCL 분산 학습** | **작업이 죽는다.** NCCL은 통신 에러에서 복구하지 않고 communicator를 abort한다. 링크 플랩 한 번에 학습 잡 전체가 날아간다 |
+| **NVMe-oF** | **자동 재연결한다.** `nvme-rdma` 에 재연결 로직이 있어 잠깐의 장애는 넘긴다 |
+| **직접 만든 verbs 앱** | 만든 사람이 처리한 만큼만 복구된다 |
+
+NVMe-oF 쪽 재연결 파라미터는 이렇다.
+
+```bash
+nvme connect -t rdma -a 10.0.0.1 -s 4420 -n <nqn> \
+  --reconnect-delay=10 \
+  --ctrl-loss-tmo=600
+```
+
+`ctrl_loss_tmo` 안에 복구되면 I/O가 이어지고, 넘기면 장치가 사라진다. 기본값이 상황에 안 맞는 경우가 많으니 확인해두는 게 좋다.
+
+**학습 잡이 죽는다는 게 실무에서 뜻하는 것**
+
+링크 플랩 한 번이 며칠짜리 학습을 날릴 수 있다는 뜻이다. GPU 패브릭의 안정성을 그렇게까지 따지는 이유가 여기 있다. 대응은 둘뿐이다.
+
+1. **체크포인트 주기를 짧게 가져간다.** 복구 비용의 상한을 정하는 유일한 수단이다
+2. **패브릭에서 플랩이 안 나게 한다.** 트랜시버 품질, 케이블 체결 상태, 펌웨어 버전, 그리고 5.6의 PFC deadlock까지
+
+**유지보수 시 주의**
+
+스위치 한 대를 내리면 그 경로의 QP가 전부 ERR로 떨어지고, 학습 잡은 죽는다. 무중단 교체를 기대하기 어렵다는 뜻이다. **패브릭 작업은 잡이 없는 시간에 잡는 것을 전제로 계획해야 한다.** ECMP로 경로가 여러 개 있어도 QP는 이미 맺어진 경로에 묶여 있어서 자동으로 옮겨가지 않는다.
+
+```bash
+# 링크 플랩 이력 확인
+ethtool -S ens1f0 | grep -iE 'link_down|carrier'
+dmesg | grep -iE 'bnxt_re|mlx5.*(link|error)'
+
+# QP 에러 카운터
+ethtool -S ens1f0 | grep -E 'local_ack_timeout|packet_seq_err|out_of_sequence'
+```
+
+`local_ack_timeout` 이 올라가고 있다면 아직 QP가 죽지는 않았지만 재시도로 버티는 중이라는 뜻이다. **장애가 터지기 전에 잡을 수 있는 신호**다.
 
 ---
 
