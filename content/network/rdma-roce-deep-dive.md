@@ -1339,14 +1339,68 @@ flowchart TD
 | **Chelsio T5 / T6** | X | iWARP 전용 |
 | **일반 온보드 1G/10G NIC, Realtek 등** | X | 논외 |
 
-### 13.2 현실적인 판단 기준
+이 표는 칩 기준이다. 실제로 구매하는 카드는 대개 서버 제조사의 OEM 모델이라, 모델명을 칩으로 환산하는 단계가 한 번 더 필요하다.
+
+### 13.2 OEM 카드는 칩으로 판단한다
+
+Supermicro AOC, Dell, HPE, Lenovo 모두 같은 칩을 자기 이름으로 판다. **모델명만 보고는 알 수 없고, 안에 든 칩을 찾아 13.1 표와 대조해야 한다.** Supermicro의 `AOC-A100G-b2CG` 를 예로 풀어본다.
+
+```text
+AOC - A100G - b   2   C     G
+ │      │      │   │   │     └ GrandTwin FIO용 0.5U 협폭 브래킷
+ │      │      │   │   └────── QSFP28
+ │      │      │   └────────── 듀얼 포트
+ │      │      └────────────── 칩 벤더 (b=Broadcom, m=NVIDIA, i=Intel)
+ │      └───────────────────── 100GbE
+ └──────────────────────────── Add-On Card
+```
+
+| 항목 | 내용 |
+|---|---|
+| 컨트롤러 | Broadcom **BCM57508** (코드명 Thor) |
+| 포트 | 2 x 100GbE QSFP28 |
+| PCIe | Gen4 x16 |
+| RDMA | **RoCE v1 / v2 지원** |
+| DCB | DCBX, PFC 지원 |
+| 폼팩터 | AIOM (OCP 3.0 계열) |
+
+칩이 BCM57508이므로 13.1 표의 Broadcom NetXtreme-E 행에 해당하고, **RoCE v2를 지원한다.** 참고로 끝자리만 다른 `b2CM` 은 표준 브래킷 버전이고 칩과 기능은 같다.
+
+다만 그 행의 비고대로 확인할 것이 둘 있다.
+
+**첫째, NVRAM에서 RDMA가 켜져 있어야 한다.** Broadcom 카드는 기본값으로 꺼져 있는 경우가 있다.
+
+```text
+System Setup → Device Settings → NetXtreme-E NIC
+  → NIC Partitioning Configuration → NIC+RDMA Mode = Enabled
+```
+
+**둘째, 드라이버가 짝으로 필요하다.** `bnxt_re`(RDMA)는 `bnxt_en`(이더넷)에 의존하며, RoCE가 활성화된 버전이어야 한다.
+
+```bash
+niccli --dev 0 get support_rdma      # NVRAM 설정 확인
+lsmod | grep -E 'bnxt_en|bnxt_re'
+ls /sys/class/infiniband/            # bnxt_re0 이 보여야 한다
+```
+
+**주의할 점이 하나 더 있다. 9장의 설정 명령은 이 카드에 쓸 수 없다.** `mlnx_qos`, `/sys/class/net/*/ecn/roce_*`, `cma_roce_tos` 는 전부 NVIDIA 전용이다. 개념(DSCP 26과 priority 3, CNP는 DSCP 48, ECN 임계치)은 그대로지만 도구가 다르다.
+
+| 용도 | NVIDIA | Broadcom |
+|---|---|---|
+| QoS·PFC 설정 | `mlnx_qos` | `niccli`, lldpad/DCB |
+| 펌웨어·NVRAM | `mlxconfig` | `bnxtnvm`, `niccli` |
+| 혼잡 제어 설정 | `/sys/.../ecn/roce_rp` | Broadcom 제공 `bnxt_setupcc.sh` |
+
+용도가 NVMe-oF나 일반 데이터센터 패브릭이면 이 카드로 충분하다. 다만 대규모 GPU 학습 패브릭이라면 13.3에서 말하듯 NCCL 최적화와 트러블슈팅 사례가 NVIDIA 쪽에 훨씬 많다는 점을 감안해야 한다.
+
+### 13.3 현실적인 판단 기준
 
 - **25GbE 이상의 데이터센터급 NIC**이라면 지원할 가능성이 높다
 - **10GbE 이하나 온보드 NIC**이면 대체로 안 된다
 - 다만 칩이 지원해도 **펌웨어 버전, 드라이버, 라이선스**가 걸릴 수 있다. Broadcom 일부 모델은 RoCE 기능이 별도 라이선스로 잠겨 있다
 - **GPU 학습 클러스터를 새로 구성한다면 사실상 NVIDIA ConnectX 계열이 기본 선택지다.** 성능 때문만이 아니라 NCCL 최적화, 문서, 트러블슈팅 사례가 압도적으로 많아서다
 
-### 13.3 내 카드가 되는지 확인하는 법
+### 13.4 내 카드가 되는지 확인하는 법
 
 ```bash
 # 1) RDMA 디바이스가 잡히는지
@@ -1359,17 +1413,19 @@ ibv_devinfo
 # 3) 링크 타입 확인 (Ethernet이면 RoCE, InfiniBand면 IB)
 ibv_devinfo | grep -E 'link_layer|transport'
 
-# 4) RoCE 버전 확인
-cat /sys/class/infiniband/mlx5_0/ports/1/gid_attrs/types/*
+# 4) RoCE 버전 확인 (디바이스 이름은 벤더마다 다르다)
+#    NVIDIA는 mlx5_0, Broadcom은 bnxt_re0, Intel E810은 irdma0 형태
+RDEV=$(ls /sys/class/infiniband/ | head -1)
+cat /sys/class/infiniband/$RDEV/ports/1/gid_attrs/types/*
 # RoCE v2 가 보이면 지원
 
-# 5) PCI 레벨에서 카드 식별
+# 5) PCI 레벨에서 카드 식별 (칩 모델명이 여기 찍힌다)
 lspci | grep -i -E 'ethernet|infiniband'
 ```
 
 `/sys/class/infiniband/` 가 비어 있으면 그 서버에는 RDMA 가능한 카드가 없거나 드라이버가 안 올라온 것이다.
 
-### 13.4 클라우드에서는
+### 13.5 클라우드에서는
 
 | 클라우드 | RDMA 제공 방식 |
 |---|---|
@@ -1411,51 +1467,53 @@ timeline
 ## 15. 정리
 
 ```mermaid
-mindmap
-  root(("RoCE v2"))
-    개념
-      Zero-copy
-      Kernel bypass
-      Transport offload
-    객체
-      QP / CQ / WQE
-      MR / lkey / rkey
-      PD / GID
-      one-sided vs two-sided
-    무손실 만들기
-      PFC
-        hop-by-hop
-        headroom
-        watchdog
-      DCQCN
-        end-to-end
-        CP / NP / RP
-        CNP 보호
-    서버
-      BIOS
-        PCIe MPS MRRS
-        ASPM off
-        ACS off
-        C-state off
-        NUMA 정렬
-      OS
-        NIC trust dscp
-        pfc prio3
-        ecn np 와 rp
-        MTU 9000
-        GID index v2
-    스위치
-      포트 trust dscp
-      DSCP to TC
-      PFC + 버퍼
-      WRED ECN
-      CNP strict priority
-      ECMP 엔트로피
-    검증
-      ib_write_bw
-      pause 카운터
-      cnp 카운터
-      packet_seq_err
+flowchart LR
+    R(["RoCE v2"])
+
+    R --> C["개념"]
+    R --> O["객체"]
+    R --> L["무손실 만들기"]
+    R --> S["서버"]
+    R --> W["스위치"]
+    R --> V["검증"]
+
+    C --> C1["Zero-copy<br/>Kernel bypass<br/>Transport offload"]
+
+    O --> O1["QP / CQ / WQE<br/>MR / lkey / rkey<br/>PD / GID<br/>one-sided vs two-sided"]
+
+    L --> LP["PFC"]
+    L --> LD["DCQCN"]
+    LP --> LP1["hop-by-hop<br/>headroom<br/>watchdog"]
+    LD --> LD1["end-to-end<br/>CP / NP / RP<br/>CNP 보호"]
+
+    S --> SB["BIOS"]
+    S --> SO["OS"]
+    SB --> SB1["PCIe MPS·MRRS<br/>ASPM off<br/>ACS off<br/>C-state off<br/>NUMA 정렬"]
+    SO --> SO1["trust dscp<br/>pfc prio3<br/>ecn np 와 rp<br/>MTU 9000<br/>GID index v2"]
+
+    W --> W1["trust dscp<br/>DSCP → TC<br/>PFC + 버퍼<br/>WRED ECN<br/>CNP strict priority<br/>ECMP 엔트로피"]
+
+    V --> V1["ib_write_bw<br/>pause 카운터<br/>cnp 카운터<br/>packet_seq_err"]
+
+    style R fill:#cfe0f9,stroke:#2563eb,color:#0f172a
+    style C fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style O fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style L fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style S fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style W fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style V fill:#eaf1fc,stroke:#60a5fa,color:#0f172a
+    style LP fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style LD fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style SB fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style SO fill:#dce9fb,stroke:#3b82f6,color:#0f172a
+    style C1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style O1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style LP1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style LD1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style SB1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style SO1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style W1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style V1 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
 ```
 
 이 글에서 반복해서 나온 문장 세 개만 남긴다면 이렇다.
@@ -1608,3 +1666,5 @@ mindmap
 - IEEE 802.1Qbb (PFC), RFC 3168 (ECN)
 - NVIDIA, *RDMA over Converged Ethernet (RoCE) Configuration Guide*
 - NVIDIA, *NCCL User Guide* : 환경변수 전체 목록
+- Supermicro, *AOC-A100G-b2CM / b2CG 데이터시트* : 13.2의 OEM 카드 예시
+- Broadcom, *NetXtreme-E User Guide* 및 `bnxt_re` 드라이버 문서 : Broadcom 계열 RoCE 설정
