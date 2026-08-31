@@ -6,9 +6,11 @@ tags: ["RDMA", "RoCE", "InfiniBand", "Network", "GPU", "MLOps", "정리"]
 keywords: ["RDMA", "RoCE v2", "RoCE 설정", "InfiniBand", "PFC", "DCQCN", "ECN", "CNP", "GPUDirect RDMA", "NCCL", "무손실 이더넷", "lossless ethernet", "NVMe-oF", "QP", "verbs"]
 ---
 
-GPU 클러스터를 다루기 시작하면 반드시 마주치는 단어가 RDMA다. NCCL 로그에 IB가 찍히고, 스토리지 벤더는 NVMe-oF를 말하고, 네트워크 팀은 PFC 얘기를 꺼낸다. 이 글은 그 조각들이 어떻게 하나의 그림으로 이어지는지를, 용어 하나 빼놓지 않고 정리한 기록이다.
+GPU 클러스터를 다루기 시작하면 반드시 마주치는 단어가 RDMA다. NCCL(NVIDIA Collective Communications Library) 로그에 IB가 찍히고, 스토리지 벤더는 NVMe-oF를 말하고, 네트워크 팀은 PFC 얘기를 꺼낸다. 이 글은 그 조각들이 어떻게 하나의 그림으로 이어지는지를, 용어 하나 빼놓지 않고 정리한 기록이다.
 
 순서는 이렇게 잡았다. 먼저 RDMA가 무엇인지 보고, 어떤 객체들로 동작하는지 뜯어본 다음, RoCE가 그중 어떤 구현인지 위치를 잡는다. 이어서 왜 설정이 까다로운지를 짚고, 마지막으로 서버와 스위치에서 실제로 뭘 만지는지로 넘어간다.
+
+약어가 많이 나오는 분야다. 모르는 약어가 보이면 맨 끝의 [약어 사전](#부록-약어-사전)을 보면 된다. 본문에 나온 것은 전부 거기 정리해두었다.
 
 ---
 
@@ -321,7 +323,7 @@ v1은 이더넷 프레임에 EtherType 0x8915로 바로 얹는다. 그래서 L2 
 | **RETH (RDMA Extended Transport Header)** | one-sided 연산에만 붙는다. 상대 메모리의 **가상 주소, rkey, 길이**가 여기 담긴다 |
 | **PSN** | 패킷 순서 번호. 이게 어긋나면 재전송이 발생한다 |
 | **ICRC** | RDMA 계층의 무결성 검사값. 이더넷 FCS와 별개다 |
-| **UDP source port** | 실제 포트가 아니라 QP별로 계산한 해시값을 넣는다. 스위치 ECMP가 이 값으로 경로를 분산시킨다 |
+| **UDP source port** | 실제 포트가 아니라 QP별로 계산한 해시값을 넣는다. 스위치의 ECMP(Equal-Cost Multi-Path, 같은 비용의 여러 경로에 해시로 분산시키는 라우팅)가 이 값으로 경로를 고른다 |
 
 **UDP 4791**은 외워둘 만하다. 방화벽이나 ACL에서 이 포트가 막히면 RoCE가 안 붙는다.
 
@@ -423,7 +425,7 @@ sequenceDiagram
 
 ### 5.2 PAUSE 프레임의 실제 모습
 
-PFC PAUSE는 IP도 TCP도 아닌 **L2 MAC Control 프레임**이다. IP 헤더가 아예 없고 크기는 64바이트로 고정이다.
+PFC PAUSE는 IP도 TCP도 아닌 **L2 MAC(Media Access Control) Control 프레임**이다. IP 헤더가 아예 없고 크기는 64바이트로 고정이다.
 
 ```text
 오프셋  크기  필드
@@ -602,7 +604,7 @@ ToS 바이트 8비트의 구성이 이렇다.
 +---+---+---+---+---+---+---+---+
 ```
 
-그래서 **DSCP 값에 4를 곱하면 ToS 값**이 된다. DSCP 26이면 ToS 104, 여기에 ECT(0)=`10`(=2)을 더해 106을 쓰는 설정 예시를 자주 본다.
+**DSCP**(Differentiated Services Code Point)는 트래픽 등급을 표시하는 6비트 값이고, 하위 2비트가 ECN이다. 그래서 **DSCP 값에 4를 곱하면 ToS 값**이 된다. DSCP 26이면 ToS 104, 여기에 ECT(0)=`10`(=2)을 더해 106을 쓰는 설정 예시를 자주 본다.
 
 ### 6.2 DCQCN 폐루프
 
@@ -854,6 +856,8 @@ nvidia-smi topo -m     # PIX / PXB 면 좋고, SYS 면 CPU를 거치는 것
 
 ### 8.3 NUMA·메모리·가상화
 
+**NUMA**(Non-Uniform Memory Access)는 CPU 소켓마다 가까운 메모리가 다른 구조를 말한다. NIC도 특정 소켓에 붙어 있으므로, 프로세스와 NIC이 같은 노드에 있느냐가 성능을 크게 가른다.
+
 | 항목 | 권장값 | 이유 |
 |---|---|---|
 | **Node Interleaving** | **Disabled** (= NUMA 유지) | 인터리빙을 켜면 NUMA 구조가 사라져 NIC 로컬 노드에 프로세스를 고정할 수 없다. RDMA는 NIC-메모리 지역성이 성능을 좌우한다 |
@@ -984,6 +988,8 @@ echo 4 > /sys/class/net/$IFACE/ecn/roce_np/min_time_between_cnps
 기본값이 대체로 무난하다. 대규모 incast(다대일 집중)에서 문제가 생길 때만 손대는 게 좋다.
 
 ### 9.4 MTU
+
+MTU(Maximum Transmission Unit)는 한 번에 보낼 수 있는 최대 크기다. 이더넷 MTU와 RoCE가 쓰는 IB MTU는 별개 값이라 둘 다 확인해야 한다.
 
 ```bash
 # 이더넷 MTU를 점보로 (헤더 여유 포함)
@@ -1457,6 +1463,140 @@ mindmap
 1. **RoCE는 네트워크를 무손실로 만들어야 동작한다.** 그래서 경로상의 모든 서버와 모든 스위치가 같은 설정을 공유해야 한다. 한 곳만 빠져도 전체가 영향을 받는다
 2. **PFC는 응급처치, DCQCN이 근본 치료다.** PAUSE가 상시로 발생한다면 그건 정상 동작이 아니라 DCQCN이 제 역할을 못 한다는 신호다
 3. **받는 서버는 수동적이지 않다.** 혼잡을 감지해 CNP를 되돌리는 게 수신 NIC의 역할이며, 이 설정 하나가 빠지면 클러스터 전체가 느려진다
+
+---
+
+## 부록. 약어 사전
+
+본문에 나온 약어를 한자리에 모았다. 중간부터 읽더라도 여기만 보면 막히지 않는다.
+
+### RDMA 기본
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **RDMA** | Remote Direct Memory Access | CPU와 커널을 거치지 않고 원격 서버의 메모리를 직접 읽고 쓰는 기술 |
+| **RoCE** | RDMA over Converged Ethernet | 일반 이더넷 위에서 RDMA를 구현한 방식. 발음은 “로키” |
+| **RRoCE** | Routable RoCE | RoCE v2의 다른 이름. IP 라우팅이 되기 때문에 붙은 이름 |
+| **IB** | InfiniBand | 전용 케이블과 스위치를 쓰는 RDMA 전용 네트워크 규격 |
+| **iWARP** | internet Wide Area RDMA Protocol | TCP 위에서 RDMA를 구현한 방식. 손실을 허용해 설정이 쉬운 대신 성능은 낮다 |
+| **HCA** | Host Channel Adapter | InfiniBand 쪽에서 부르는 RDMA 카드 이름 |
+| **RNIC** | RDMA NIC | 이더넷 쪽에서 부르는 RDMA 카드 이름. RDMA 전송 엔진이 하드웨어로 들어가 있다 |
+| **NIC** | Network Interface Card | 네트워크 카드 일반 |
+| **DPU** | Data Processing Unit | NIC 기능에 프로세서와 오프로드 엔진을 얹은 카드. NVIDIA BlueField 등 |
+
+### 통신 객체 (verbs)
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **verbs** | RDMA API | 소켓 API에 대응하는 RDMA 프로그래밍 인터페이스. `libibverbs` 로 제공된다 |
+| **QP** | Queue Pair | Send Queue와 Receive Queue의 쌍. 소켓에 해당하는 통신 종단점 |
+| **QPN** | Queue Pair Number | QP를 식별하는 번호. 패킷 헤더에 실려 목적지 QP를 지목한다 |
+| **CQ / CQE** | Completion Queue / Element | 작업 완료를 알리는 큐와 그 항목 |
+| **WQE / WR** | Work Queue Element / Work Request | “이 버퍼를 저기로 보내라” 같은 작업 요청 하나 |
+| **MR** | Memory Region | RDMA용으로 등록(pin)된 메모리 영역 |
+| **PD** | Protection Domain | MR과 QP를 묶는 격리 단위. 다른 PD의 메모리에는 접근할 수 없다 |
+| **GID** | Global Identifier | 128비트 주소. RoCE v2에서는 IP 주소를 매핑해 쓴다 |
+| **LID** | Local Identifier | InfiniBand 서브넷 안의 16비트 지역 주소. RoCE에는 없다 |
+| **PKey** | Partition Key | InfiniBand의 논리 분할. VLAN과 비슷한 역할 |
+| **SM** | Subnet Manager | InfiniBand 서브넷의 주소와 경로를 관리하는 주체 |
+| **RDMA-CM** | RDMA Connection Manager | IP 주소 기반으로 QP 정보를 교환해 연결 수립을 돕는 계층 |
+| **RC / UC / UD** | Reliable Connected / Unreliable Connected / Unreliable Datagram | QP의 전송 타입. RC가 기본이고 대규모에서는 UD를 쓴다 |
+| **DCT** | Dynamically Connected Transport | RC의 신뢰성과 UD의 확장성을 합친 NVIDIA 확장 |
+| **CAS / FAA** | Compare-and-Swap / Fetch-and-Add | 원격 메모리에 원자적으로 수행하는 ATOMIC 연산 |
+| **IMM** | Immediate | WRITE에 4바이트 즉치값을 실어 수신 측에 완료를 알리는 방식 |
+| **RNR** | Receiver Not Ready | 수신 측이 RECV를 올려두지 않아 발생하는 에러 |
+| **doorbell** | | 큐에 작업을 넣은 뒤 NIC의 레지스터를 두드려 알리는 동작. 커널을 거치지 않는다 |
+| **DMA** | Direct Memory Access | CPU를 거치지 않고 장치가 메모리를 직접 읽고 쓰는 것 |
+| **MMIO** | Memory-Mapped I/O | 장치 레지스터를 메모리 주소 공간에 매핑해 접근하는 방식. doorbell이 여기 해당 |
+
+### 패킷과 헤더
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **BTH** | Base Transport Header | 목적지 QPN, opcode, PSN이 들어가는 RDMA 전송의 핵심 헤더 |
+| **RETH** | RDMA Extended Transport Header | one-sided 연산에만 붙는다. 상대 메모리의 가상주소, rkey, 길이가 담긴다 |
+| **GRH** | Global Route Header | RoCE v1이 쓰던 라우팅 헤더 |
+| **PSN** | Packet Sequence Number | 패킷 순서 번호. 어긋나면 재전송이 발생한다 |
+| **ICRC** | Invariant CRC | RDMA 계층의 무결성 검사값. 이더넷 FCS와 별개다 |
+| **FCS** | Frame Check Sequence | 이더넷 프레임의 오류 검사값 |
+| **MTU** | Maximum Transmission Unit | 한 번에 보낼 수 있는 최대 크기. 이더넷 MTU와 RoCE의 IB MTU는 별개 값이다 |
+| **ACK** | Acknowledgement | 잘 받았다는 응답 |
+
+### QoS와 혼잡 제어
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **PFC** | Priority Flow Control (IEEE 802.1Qbb) | 우선순위별로 정지 신호를 보내 버퍼 넘침을 막는 흐름 제어 |
+| **XOFF / XON** | | 전송을 멈추라는 신호와 다시 시작하라는 신호. 버퍼 점유율 임계치로 판단한다 |
+| **ECN** | Explicit Congestion Notification | 패킷을 버리는 대신 IP 헤더 비트로 혼잡을 알리는 방식 |
+| **ECT** | ECN-Capable Transport | 이 패킷이 ECN을 지원한다는 표시 |
+| **CE** | Congestion Experienced | 스위치가 혼잡할 때 찍는 ECN 표시값 |
+| **CNP** | Congestion Notification Packet | CE를 본 수신 서버가 송신 서버에게 되돌리는 “속도 줄여” 패킷 |
+| **DCQCN** | Data Center Quantized Congestion Notification | ECN 마킹, CNP 생성, 속도 조절을 묶은 RoCE의 혼잡 제어 알고리즘 |
+| **QCN** | Quantized Congestion Notification (802.1Qau) | DCQCN의 이름이 유래한 이전 세대 혼잡 제어 규격 |
+| **CP / NP / RP** | Congestion / Notification / Reaction Point | 각각 혼잡이 생긴 스위치, CNP를 만드는 수신 NIC, 속도를 낮추는 송신 NIC |
+| **WRED** | Weighted Random Early Detection | 큐 길이에 따라 확률적으로 마킹하거나 버리는 방식. min/max 임계치로 설정한다 |
+| **DSCP** | Differentiated Services Code Point | IP 헤더 ToS 바이트 상위 6비트. 트래픽 등급을 표시하는 마킹 값 |
+| **ToS** | Type of Service | IP 헤더의 1바이트 필드. 상위 6비트가 DSCP, 하위 2비트가 ECN |
+| **TC** | Traffic Class | 스위치 내부에서 트래픽을 나누는 등급. DSCP를 여기에 매핑한다 |
+| **PCP** | Priority Code Point | VLAN 태그 안의 3비트 우선순위. L2 마킹이라 라우팅을 넘으면 사라진다 |
+| **DCB** | Data Center Bridging | 무손실 이더넷을 위한 IEEE 표준 묶음. PFC가 그중 하나다 |
+| **DCBX** | DCB Capability Exchange | LLDP에 얹혀 PFC 설정을 자동 협상하는 프로토콜 |
+| **CEE** | Converged Enhanced Ethernet | DCBX의 표준 제정 이전 방식. IEEE 방식과 호환되지 않는다 |
+| **LLDP** | Link Layer Discovery Protocol | 이웃 장비 정보를 주고받는 L2 프로토콜. DCBX가 여기 실린다 |
+| **HOL** | Head-of-Line blocking | 앞선 하나 때문에 뒤의 전부가 막히는 현상 |
+| **RTT** | Round-Trip Time | 왕복 시간. DCQCN이 반응하는 데 최소 한 번 필요하다 |
+
+### 이더넷과 스위치
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **MAC** | Media Access Control | 이더넷 주소 체계이자 그 처리를 담당하는 계층. PFC 프레임은 여기서 생성·소비된다 |
+| **PHY** | Physical Layer | 전기 신호를 다루는 최하위 계층 |
+| **L2 / L3 / L4** | Layer 2 / 3 / 4 | 각각 이더넷, IP, TCP·UDP 계층 |
+| **ECMP** | Equal-Cost Multi-Path | 비용이 같은 여러 경로에 트래픽을 해시로 분산시키는 라우팅 |
+| **SFP28 / QSFP28** | | 25G급, 100G급 광 트랜시버 규격 |
+
+### 서버와 하드웨어
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **NUMA** | Non-Uniform Memory Access | CPU 소켓마다 가까운 메모리가 다른 구조. NIC과 프로세스를 같은 노드에 붙여야 성능이 난다 |
+| **SNC** | Sub-NUMA Clustering | NUMA 노드를 더 잘게 쪼개는 Intel 기능 |
+| **NPS** | Nodes Per Socket | AMD에서 소켓당 NUMA 노드 수를 정하는 설정 |
+| **UPI** | Ultra Path Interconnect | Intel의 CPU 소켓 간 연결. AMD는 Infinity Fabric |
+| **PCIe** | PCI Express | 확장 카드 연결 규격. NIC과 GPU가 여기 붙는다 |
+| **MPS** | Max Payload Size | PCIe 한 트랜잭션에 실리는 데이터 크기 |
+| **MRRS** | Max Read Request Size | NIC이 호스트 메모리를 한 번에 읽어오는 요청 크기 |
+| **ASPM** | Active State Power Management | PCIe 링크를 저전력 상태로 내리는 기능. 지연이 늘어 RDMA에서는 끈다 |
+| **ACS** | Access Control Services | PCIe 장치 간 직접 통신을 차단하는 보안 기능. GPUDirect를 쓰려면 끈다 |
+| **BAR** | Base Address Register | 장치 메모리를 호스트 주소 공간에 노출하는 창. GPUDirect는 큰 BAR가 필요하다 |
+| **P2P** | Peer-to-Peer | CPU를 거치지 않는 PCIe 장치 간 직접 전송 |
+| **IOMMU** | I/O Memory Management Unit | 장치의 DMA 주소를 변환·격리하는 장치. Intel은 VT-d, AMD는 AMD-Vi |
+| **SR-IOV** | Single Root I/O Virtualization | 물리 NIC 하나를 여러 가상 기능으로 나누는 기술 |
+| **VF** | Virtual Function | SR-IOV로 나뉜 가상 NIC 하나 |
+| **DDIO / DCA** | Data Direct I/O / Direct Cache Access | NIC의 DMA 데이터를 DRAM 대신 CPU 캐시에 직접 넣는 기능 |
+| **NVRAM** | Non-Volatile RAM | 카드 설정을 저장하는 비휘발성 영역. Broadcom은 여기서 RDMA를 켠다 |
+
+### 소프트웨어와 라이브러리
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **NCCL** | NVIDIA Collective Communications Library | GPU 간 집합 통신(all-reduce 등)을 담당하는 라이브러리. 발음은 “니클”. RDMA 위에서 실제 트래픽을 만드는 주체다 |
+| **OFED** | OpenFabrics Enterprise Distribution | RDMA 드라이버와 유틸리티 묶음. NVIDIA는 DOCA-OFED로 배포한다 |
+| **MPI** | Message Passing Interface | HPC의 전통적인 분산 통신 표준 |
+| **HPC** | High Performance Computing | 슈퍼컴퓨터급 과학 계산 분야 |
+| **GDR** | GPUDirect RDMA | GPU 메모리와 NIC을 PCIe로 직접 연결해 호스트 메모리를 거치지 않는 기술 |
+
+### 스토리지와 기타
+
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **NVMe** | Non-Volatile Memory Express | PCIe에 직접 붙는 SSD를 다루는 명령 규격 |
+| **NVMe-oF** | NVMe over Fabrics | NVMe 명령을 네트워크 너머로 보내 원격 SSD를 로컬처럼 쓰는 프로토콜 |
+| **SRD** | Scalable Reliable Datagram | AWS EFA가 쓰는 자체 전송 프로토콜. 손실을 허용해 PFC가 필요 없다 |
+| **EFA** | Elastic Fabric Adapter | AWS의 고성능 네트워크 어댑터 |
+| **UEC** | Ultra Ethernet Consortium | AI·HPC를 위한 새 이더넷 전송 계층을 표준화 중인 단체 |
 
 ---
 
