@@ -86,7 +86,7 @@ flowchart TD
 
 결과적으로 지연이 수십 마이크로초에서 **1~2μs** 수준으로 떨어지고, 100G 이상을 CPU 코어 하나 이하로 채운다.
 
-### 1.3 왜 메모리를 "등록"해야 하는가
+### 1.3 왜 메모리를 “등록”해야 하는가
 
 RDMA의 전제는 **NIC이 물리 주소로 DMA를 한다**는 것이다. 그런데 리눅스는 페이지를 언제든 스왑하거나 옮길 수 있다. NIC이 DMA 하는 도중에 페이지가 이동하면 엉뚱한 메모리를 덮어쓴다.
 
@@ -136,9 +136,9 @@ flowchart TB
 | **HCA (Host Channel Adapter)** | RDMA 카드 자체. 이더넷 쪽에서는 **RNIC(RDMA NIC)** 이라고 부른다 |
 | **verbs** | RDMA API. `libibverbs` 라이브러리로 제공된다. 소켓의 `socket/bind/send` 자리에 `ibv_create_qp/ibv_post_send` 같은 함수가 온다 |
 | **QP (Queue Pair)** | Send Queue와 Receive Queue의 쌍. 통신 종단점이며 소켓에 대응한다. QP 번호(QPN)로 식별한다 |
-| **WQE (Work Queue Element)** | "이 버퍼를 저기로 보내라" 같은 작업 요청 하나. WR(Work Request)이라고도 한다. 흔히 "우키"라고 읽는다 |
+| **WQE (Work Queue Element)** | “이 버퍼를 저기로 보내라” 같은 작업 요청 하나. WR(Work Request)이라고도 한다. 흔히 “우키”라고 읽는다 |
 | **CQ / CQE** | 작업 완료를 알리는 큐와 그 항목. 폴링하거나 이벤트로 받는다 |
-| **doorbell** | 애플리케이션이 큐에 WQE를 넣은 뒤 NIC의 MMIO 레지스터를 두드려 "일감 생겼다"고 알리는 동작 |
+| **doorbell** | 애플리케이션이 큐에 WQE를 넣은 뒤 NIC의 MMIO 레지스터를 두드려 “일감 생겼다”고 알리는 동작 |
 | **PD (Protection Domain)** | MR과 QP를 묶는 격리 단위. 다른 PD의 메모리에는 접근할 수 없다 |
 | **GID (Global Identifier)** | 128비트 주소. RoCE v2에서는 IP 주소를 매핑해서 쓴다. IPv4는 IPv4-mapped IPv6 형태로 들어간다 |
 | **LID (Local Identifier)** | InfiniBand 서브넷 안의 16비트 지역 주소. RoCE에는 없다 |
@@ -172,7 +172,7 @@ flowchart TB
 | **RDMA WRITE** | one-sided | 상대 메모리에 직접 쓴다. 상대 CPU는 모른다 |
 | **RDMA READ** | one-sided | 상대 메모리를 직접 읽어온다 |
 | **ATOMIC (CAS / FAA)** | one-sided | Compare-and-Swap, Fetch-and-Add를 원격 메모리에 원자적으로 수행. 분산 락 구현에 쓴다 |
-| **WRITE with IMM** | 혼합 | WRITE를 하면서 4바이트 즉치값을 같이 보내 수신 측에 완료를 알린다. 순수 one-sided의 "상대가 모른다"는 문제를 우회하는 흔한 패턴 |
+| **WRITE with IMM** | 혼합 | WRITE를 하면서 4바이트 즉치값을 같이 보내 수신 측에 완료를 알린다. 순수 one-sided의 “상대가 모른다”는 문제를 우회하는 흔한 패턴 |
 
 **one-sided 연산이 RDMA의 진짜 무기다.** 수신 서버의 CPU가 100% 사용 중이어도 원격 메모리 접근은 그대로 동작한다.
 
@@ -331,6 +331,21 @@ v1은 이더넷 프레임에 EtherType 0x8915로 바로 얹는다. 그래서 L2 
 
 RoCE v2의 전송 계층은 InfiniBand의 것을 그대로 가져왔다. IB의 물리 계층은 credit 기반이라 **패킷이 애초에 버려지지 않는다.** 그 위에서 만들어진 전송 계층이라 손실 대응이 원시적이다.
 
+3장에서 RoCE의 이더넷 계층을 “PFC로 무손실 흉내”라고 적었다. 흉내라고 쓴 이유가 여기 있다. IB와 이더넷은 무손실을 만드는 방식이 근본적으로 다르다.
+
+InfiniBand는 **사전 허가** 방식이다. 수신 측이 “버퍼 10칸 비었으니 10개까지 보내라”고 credit을 먼저 준다. 송신 측은 받아줄 공간이 확인된 만큼만 보낸다. 손실이 안 나는 게 아니라, 넘칠 상황 자체가 만들어지지 않는다.
+
+이더넷과 PFC는 **사후 정지** 방식이다. 일단 보내고, 수신 버퍼가 차면 그제서야 멈추라고 말한다. 말한 시점부터 상대가 실제로 멈추기까지 시간이 걸리고, 그 사이 날아온 패킷을 받아둘 여유 공간이 따로 필요하다. 뒤에 나올 headroom이 그것이다.
+
+| | InfiniBand | 이더넷 + PFC |
+|---|---|---|
+| 방식 | 사전 허가 (credit) | 사후 정지 (PAUSE) |
+| 무손실 | 구조적으로 보장 | 설정을 제대로 했을 때만 |
+| headroom 부족 시 | 해당 없음 | 그대로 드롭 |
+| 고유 부작용 | 없음 | HOL 블로킹, PFC storm, deadlock |
+
+결과물은 무손실처럼 보이지만 원리가 다르고 조건부다. **원래 손실을 전제로 설계된 배선 위에, 손실을 전제하지 않는 프로토콜을 올리는 일**이라 그 간극을 사람이 설정으로 메워야 한다. RoCE 설정이 까다로운 근본 이유다.
+
 ```mermaid
 flowchart TD
     A["패킷 1개 손실"] --> B{"NIC 세대"}
@@ -344,19 +359,38 @@ flowchart TD
 
 그래서 RoCE는 **네트워크를 무손실로 만들어야 한다.** 그 도구가 PFC와 ECN이다. 두 메커니즘은 동작 범위가 다르며, 이 차이를 이해하는 게 RoCE 설정의 전부라고 해도 된다.
 
-```mermaid
-flowchart LR
-    subgraph PFC["PFC - 링크 단위, hop-by-hop"]
-        P1["스위치 A"] <-->|"PAUSE"| P2["스위치 B"] <-->|"PAUSE"| P3["서버"]
-        P4["즉각적. 버퍼 넘침을 막는다<br/>하지만 범인을 못 가린다"]
-    end
+여기서부터 약어가 쏟아지므로 먼저 정리해둔다. 이 글의 나머지는 사실상 이 표를 풀어쓴 것이다.
 
-    subgraph ECN["DCQCN - 종단 간, end-to-end"]
-        E1["송신 서버"] -->|"데이터"| E2["스위치가 ECN 마킹"] -->|"데이터"| E3["수신 서버"]
-        E3 -->|"CNP 되돌림"| E1
-        E4["느리지만 정확하다<br/>진짜 원인 flow의 속도를 줄인다"]
+| 약어 | 원래 이름 | 뜻 |
+|---|---|---|
+| **PFC** | Priority Flow Control (IEEE 802.1Qbb) | 우선순위별로 “잠깐 멈춰”를 보내 버퍼 넘침을 막는 흐름 제어. 케이블 한 구간에만 적용된다 |
+| **PAUSE** | PFC가 실제로 보내는 프레임 | 정지 신호 그 자체. 직접 연결된 옆 장비에게만 가고 라우팅되지 않는다 |
+| **ECN** | Explicit Congestion Notification | 패킷을 버리는 대신 IP 헤더의 비트를 세워 “혼잡하다”고 표시하는 방식 |
+| **CE** | Congestion Experienced | 스위치가 혼잡할 때 찍는 ECN 표시값 |
+| **CNP** | Congestion Notification Packet | CE 표시를 본 수신 서버가 송신 서버에게 되돌리는 “속도 줄여” 패킷 |
+| **DCQCN** | Data Center Quantized Congestion Notification | ECN 마킹, CNP 생성, 속도 조절을 하나로 묶은 RoCE의 혼잡 제어 알고리즘 |
+| **hop-by-hop** | 홉 단위 | 케이블 한 구간씩 옆으로만 전달되는 방식. PFC가 여기 해당 |
+| **end-to-end** | 종단 간 | 출발지에서 목적지까지 직행하는 방식. DCQCN이 여기 해당 |
+| **flow** | 흐름 | 같은 출발지·목적지·포트를 공유하는 하나의 통신 단위 |
+
+```mermaid
+flowchart TB
+    subgraph PFC["PFC · 링크 단위, hop-by-hop"]
+        direction TB
+        P1["스위치 A"] <-->|"PAUSE"| P2["스위치 B"] <-->|"PAUSE"| P3["서버"]
     end
 ```
+
+```mermaid
+flowchart TB
+    subgraph ECN["DCQCN · 종단 간, end-to-end"]
+        direction TB
+        E1["송신 서버"] -->|"데이터"| E2["스위치가 ECN 마킹"] -->|"데이터"| E3["수신 서버"]
+        E3 -->|"CNP 되돌림"| E1
+    end
+```
+
+PFC는 즉각적이지만 무차별하다. 버퍼 넘침은 확실히 막는 대신 큐 전체를 세우기 때문에 누가 원인인지 가리지 못한다. DCQCN은 한 바퀴 도느라 느린 대신 정확하다. 진짜 원인이 되는 flow의 속도만 줄인다.
 
 **PFC는 응급처치, DCQCN은 근본 치료다. 둘 다 있어야 한다.**
 
@@ -387,7 +421,96 @@ sequenceDiagram
 - **quanta**: PAUSE 지속 시간 단위. 512비트 전송 시간에 해당한다
 - **중요**: PFC를 켤 때 글로벌 PAUSE(802.3x)는 반드시 꺼야 한다. 둘은 상호 배타적이며 같이 켜면 오작동한다
 
-### 5.2 headroom: PAUSE는 즉시 멈추지 않는다
+### 5.2 PAUSE 프레임의 실제 모습
+
+PFC PAUSE는 IP도 TCP도 아닌 **L2 MAC Control 프레임**이다. IP 헤더가 아예 없고 크기는 64바이트로 고정이다.
+
+```text
+오프셋  크기  필드
+─────────────────────────────────────────────────────────────
+  0     6    Destination MAC = 01:80:C2:00:00:01
+  6     6    Source MAC (보내는 포트의 MAC)
+ 12     2    EtherType = 0x8808   MAC Control
+ 14     2    Opcode    = 0x0101   PFC. 글로벌 PAUSE는 0x0001
+ 16     2    Priority Enable Vector   어느 우선순위를 멈출지 비트맵
+ 18     2    Time[0]   priority 0 정지 시간
+ 20     2    Time[1]
+ ...          ...
+ 32     2    Time[7]
+ 34    26    Padding
+ 60     4    FCS
+```
+
+priority 3만 최대 시간 멈추라는 프레임이면 이렇게 채워진다.
+
+```text
+Priority Enable Vector = 0x0008     비트 3만 1
+Time[3]                = 0xFFFF
+나머지 Time            = 0x0000     벡터 비트가 0이라 무시됨
+```
+
+**quanta: 시간 단위**
+
+Time 필드의 단위는 초가 아니라 quanta다. 1 quanta는 해당 링크 속도로 512비트를 전송하는 시간이라, 링크가 빠를수록 같은 값이 짧은 시간이 된다.
+
+| 링크 속도 | 1 quanta | 최대 정지 시간 (65535 quanta) |
+|---|---|---|
+| 10 Gbps | 51.2 ns | 약 3.35 ms |
+| 25 Gbps | 20.48 ns | 약 1.34 ms |
+| 100 Gbps | 5.12 ns | 약 335 μs |
+
+Time이 0이 아니면 그만큼 정지(XOFF), 0이면 즉시 재개(XON)다. 실무에서 스위치는 한 번 크게 걸어두기보다, 혼잡이 지속되면 타이머 만료 전에 PAUSE를 갱신 발송하고 해소되면 quanta 0을 보내 즉시 풀어준다.
+
+**전 과정이 하드웨어에서 끝난다**
+
+스위치에서는 ASIC의 버퍼 관리 블록이 우선순위별 점유율을 감시하다가 XOFF 임계치에 닿으면 포트 MAC이 프레임을 만들어 보낸다. 서버에서는 NIC의 MAC이 프레임을 받아 해당 priority 큐의 송신 스케줄러를 세운다. **스위치 CPU도, 호스트 CPU도, 드라이버도, 커널도 개입하지 않는다.** 반응이 마이크로초 단위로 나오는 이유이고, 소프트웨어가 끼면 headroom이 감당하지 못한다.
+
+같은 이유로 **tcpdump로는 PFC 프레임을 잡을 수 없다.** NIC의 MAC 계층에서 소비되고 끝나 호스트 네트워크 스택까지 올라오지 않는다. PFC 문제는 패킷 캡처가 아니라 양쪽 카운터 대조로 본다.
+
+### 5.3 PAUSE는 왜 옆 사람에게만 가는가
+
+목적지 MAC `01:80:C2:00:00:01` 이 답이다. 이 주소는 IEEE 802.1D의 예약 멀티캐스트 대역(`01:80:C2:00:00:00` ~ `01:80:C2:00:00:0F`)에 속하고, 표준을 따르는 브리지는 **이 대역의 프레임을 전달해서는 안 된다.** 받으면 그 자리에서 소비하고 끝이다. PAUSE가 라우팅되지 않는 것은 관행이 아니라 프로토콜 설계에 못 박힌 규칙이다.
+
+그래서 혼잡은 목적지에서 출발지로 한 칸씩 뒤로 번진다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 서버 A
+    participant L1 as Leaf1
+    participant SP as Spine
+    participant L2 as Leaf2
+    participant B as 서버 B
+
+    A->>L1: RoCE 데이터
+    L1->>SP: 전달
+    SP->>L2: 전달
+    Note over L2: 서버 B 방향 버퍼가 참
+    L2-->>SP: PAUSE, Leaf2와 Spine 사이 링크
+    Note over SP: Spine 버퍼가 참
+    SP-->>L1: PAUSE, Spine과 Leaf1 사이 링크
+    Note over L1: Leaf1 버퍼가 참
+    L1-->>A: PAUSE, Leaf1과 서버 A 사이 링크
+    Note over A: 이제서야 서버 A가 멈춘다
+```
+
+**Leaf2가 서버 A에게 직접 말하지 않는다.** 옆 사람에게만 말하고, 그것이 역방향으로 한 칸씩 번져 결국 서버 A까지 도달한다. 고속도로 정체가 뒤로 밀리는 것과 같다.
+
+문제는 5번 단계다. Spine이 Leaf1을 세울 때 **그 링크의 priority 3 트래픽 전체가 멈춘다.** 혼잡한 서버 B와 아무 상관 없는, 전혀 다른 목적지로 가던 통신까지 같이 멈춘다. PFC는 누가 원인인지 구분할 능력이 없다. 큐 단위로 뭉뚱그려 세울 뿐이다. 5.6에서 볼 victim flow의 정체가 이것이다.
+
+반면 CNP는 일반 IP 패킷이라 스위치를 그냥 통과해 송신 서버까지 직행한다. 원인이 되는 flow만 정확히 조준할 수 있는 이유다.
+
+| | PAUSE (PFC) | CNP (DCQCN) |
+|---|---|---|
+| 범위 | 링크 단위, 한 칸씩 | 종단 간, 직행 |
+| 형태 | L2 제어 프레임 | 일반 IP 패킷 |
+| 스위치 | 전달하지 않음 | 그냥 통과 |
+| 메시지 | 이 큐 전체 멈춰 | 너 이 flow 속도 줄여 |
+| 정확도 | 무차별 | 원인 지목 |
+
+PAUSE는 방향도 양쪽이다. 링크의 수신 측이면 누구든 보낸다. 스위치가 서버 NIC에게 보내고, 스위치끼리도 주고받고, **서버의 수신 버퍼가 차면 서버 NIC이 스위치에게 보낸다.** 스위치만 설정하면 절반만 한 것이고, 카운터를 `tx_prio3_pause`(내가 보낸 것)와 `rx_prio3_pause`(내가 받은 것)로 나눠 보는 이유도 여기 있다.
+
+### 5.4 headroom: PAUSE는 즉시 멈추지 않는다
 
 PAUSE 프레임을 보낸 순간부터 상대가 실제로 멈출 때까지 시간이 걸린다. 그 사이 날아오는 패킷을 받아둘 여유 버퍼가 **headroom**이다.
 
@@ -413,7 +536,30 @@ headroom에 필요한 크기는 이 네 가지의 합이다.
 
 그래서 스위치 설정에 **케이블 길이**를 넣는 항목이 있다. 서버 NIC 쪽에도 `mlnx_qos --cable_len` 이 있다. 케이블 길이를 실제보다 짧게 잡으면 headroom이 모자라 드롭이 나고, 무손실이 깨진다.
 
-### 5.3 PFC의 부작용 세 가지
+### 5.5 no-drop 우선순위는 어떻게 합의하나
+
+어느 priority를 lossless로 다룰지는 링크 양끝이 같은 값을 알고 있어야 한다. 한쪽만 알고 있으면 PFC는 아무 일도 하지 않는다. 방법은 둘이다.
+
+**DCBX (자동 협상)**
+
+Data Center Bridging Capability Exchange. LLDP에 얹혀 다니는 확장이다. 스위치와 NIC이 “priority 3이 no-drop”이라는 설정을 주고받는다. IEEE 방식(802.1Qaz)과 표준 제정 이전의 CEE 방식 두 갈래가 있고, 벤더 조합에 따라 서로 안 맞는 경우가 있다.
+
+**정적 설정**
+
+`willing` 비트를 0으로 두고 양쪽에 같은 값을 못 박는다. 협상 실패로 인한 비결정적 동작을 피하려고 **프로덕션에서는 대개 이쪽을 택한다.** 노드가 수십 대를 넘어가면 협상의 편의보다 전 노드 동일성이 훨씬 중요해진다.
+
+```bash
+# 현재 PFC 상태 (iproute2의 dcb 도구)
+dcb pfc show dev ens1f0
+
+# DCBX로 협상된 값
+lldptool -t -i ens1f0 -V PFC -c enabled
+
+# 글로벌 PAUSE는 꺼져 있어야 한다
+ethtool -a ens1f0
+```
+
+### 5.6 PFC의 부작용 세 가지
 
 ```mermaid
 flowchart TD
@@ -487,7 +633,7 @@ sequenceDiagram
 | **CNP (Congestion Notification Packet)** | 혼잡 신호 패킷. 페이로드 없는 작은 패킷이며 별도 우선순위로 보호해야 한다 |
 | **WRED** | 스위치에서 큐 길이에 따라 확률적으로 마킹하는 방식. min/max 임계치와 마킹 확률로 설정 |
 
-### 6.3 여기가 "받는 서버도 설정이 필요한" 이유
+### 6.3 여기가 “받는 서버도 설정이 필요한” 이유
 
 ```mermaid
 flowchart TD
@@ -506,7 +652,7 @@ RoCE 클러스터에서 모든 노드는 송신자이자 수신자다. 따라서
 
 ### 6.4 CNP를 보호해야 하는 이유
 
-CNP는 "혼잡하니 줄여라"는 신호다. 그런데 이 신호가 혼잡 때문에 지연되거나 버려지면 제어 자체가 무너진다. 그래서 이렇게 다룬다.
+CNP는 “혼잡하니 줄여라”는 신호다. 그런데 이 신호가 혼잡 때문에 지연되거나 버려지면 제어 자체가 무너진다. 그래서 이렇게 다룬다.
 
 - **별도 우선순위**(관례상 priority 6, DSCP 48)에 배치
 - **strict priority** 스케줄링으로 최우선 전송
@@ -558,7 +704,7 @@ flowchart TB
     style L4 fill:#cfe0f9,stroke:#2563eb,color:#0f172a
 ```
 
-**이 그림에서 한 칸이라도 설정이 빠지면 그 구간이 lossy가 된다.** "8노드까지는 잘 되는데 16노드에서 무너진다"는 증상의 대부분이 특정 spine 포트나 특정 서버 한 대의 설정 누락이다.
+**이 그림에서 한 칸이라도 설정이 빠지면 그 구간이 lossy가 된다.** “8노드까지는 잘 되는데 16노드에서 무너진다”는 증상의 대부분이 특정 spine 포트나 특정 서버 한 대의 설정 누락이다.
 
 ---
 
@@ -1189,7 +1335,7 @@ timeline
 | **NVIDIA Spectrum-X** | adaptive routing과 실시간 텔레메트리 기반 혼잡 제어로 PFC 의존도를 낮춘다 |
 | **Ultra Ethernet Consortium (UEC)** | AI/HPC를 위한 새 이더넷 전송 계층 표준화. 다중경로, 순서 무관 전달, 개선된 혼잡 제어를 목표로 한다 |
 
-즉 **"RoCE = PFC 필수"는 클래식한 구성**이고, 규모가 커질수록 lossy 기반 설계로 이동하는 중이다. 신규 클러스터를 검토한다면 이 선택지도 같이 봐야 한다.
+즉 **“RoCE = PFC 필수”는 클래식한 구성**이고, 규모가 커질수록 lossy 기반 설계로 이동하는 중이다. 신규 클러스터를 검토한다면 이 선택지도 같이 봐야 한다.
 
 ---
 
