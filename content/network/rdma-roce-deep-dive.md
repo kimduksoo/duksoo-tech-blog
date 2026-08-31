@@ -261,17 +261,26 @@ sequenceDiagram
 RDMA는 개념이고, 실제로 배선에 태우는 방식이 세 가지다.
 
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph IB["InfiniBand"]
-        IB1["RDMA verbs"] --> IB2["IB Transport"] --> IB3["IB Network"] --> IB4["IB Link<br/>credit 기반 무손실"] --> IB5["전용 IB 케이블·스위치"]
+        direction LR
+        IB1["RDMA verbs"] --> IB2["IB Transport"] --> IB3["IB Network"] --> IB4["IB Link<br/>credit 기반 무손실"] --> IB5["전용 IB<br/>케이블·스위치"]
     end
+```
 
+```mermaid
+flowchart LR
     subgraph RCE["RoCE v2"]
-        R1["RDMA verbs"] --> R2["IB Transport<br/>동일한 전송계층 재사용"] --> R3["UDP / IP<br/>포트 4791"] --> R4["Ethernet<br/>PFC로 무손실 흉내"] --> R5["일반 이더넷 스위치"]
+        direction LR
+        R1["RDMA verbs"] --> R2["IB Transport<br/>동일한 전송계층 재사용"] --> R3["UDP / IP<br/>포트 4791"] --> R4["Ethernet<br/>PFC로 무손실 흉내"] --> R5["일반 이더넷<br/>스위치"]
     end
+```
 
+```mermaid
+flowchart LR
     subgraph IW["iWARP"]
-        W1["RDMA verbs"] --> W2["MPA / DDP / RDMAP"] --> W3["TCP<br/>손실 허용·재전송 내장"] --> W4["IP / Ethernet"] --> W5["일반 이더넷 스위치"]
+        direction LR
+        W1["RDMA verbs"] --> W2["MPA / DDP / RDMAP"] --> W3["TCP<br/>손실 허용·재전송 내장"] --> W4["IP / Ethernet"] --> W5["일반 이더넷<br/>스위치"]
     end
 ```
 
@@ -289,17 +298,22 @@ flowchart TB
 ### 3.1 RoCE v1 vs v2
 
 ```mermaid
-flowchart TB
-    subgraph V1["RoCE v1 - 사실상 사장됨"]
+flowchart LR
+    subgraph V1["RoCE v1 · 사실상 사장됨"]
+        direction LR
         A["Ethernet Header<br/>EtherType 0x8915"] --> B["GRH<br/>Global Route Header"] --> C["BTH"] --> D["Payload"] --> E["ICRC + FCS"]
-        F["L2 브로드캐스트 도메인 안에서만 동작<br/>라우터를 못 넘음"]
-    end
-
-    subgraph V2["RoCE v2 - 현재 표준, RRoCE라고도 함"]
-        G["Ethernet Header"] --> H["IP Header<br/>DSCP 마킹 위치"] --> I["UDP Header<br/>dst port 4791<br/>src port는 ECMP 해시용 엔트로피"] --> J["BTH<br/>Base Transport Header"] --> K["RETH 등 확장 헤더<br/>가상주소 + rkey + 길이"] --> L["Payload"] --> M["ICRC + FCS"]
-        N["IP 라우팅 가능. 데이터센터 전체로 확장"]
     end
 ```
+
+```mermaid
+flowchart LR
+    subgraph V2["RoCE v2 · 현재 표준"]
+        direction LR
+        G["Ethernet<br/>Header"] --> H["IP Header<br/>DSCP 마킹"] --> I["UDP Header<br/>dst 4791<br/>src = ECMP 엔트로피"] --> J["BTH<br/>Base Transport"] --> K["RETH<br/>가상주소·rkey·길이"] --> L["Payload"] --> M["ICRC + FCS"]
+    end
+```
+
+v1은 이더넷 프레임에 EtherType 0x8915로 바로 얹는다. 그래서 L2 브로드캐스트 도메인 안에서만 동작하고 라우터를 넘지 못한다. v2는 UDP/IP로 한 번 감싸서 표준 IP 라우팅을 타므로 데이터센터 전체로 확장된다. 라우팅이 된다는 뜻에서 RRoCE(Routable RoCE)라고도 부른다.
 
 | 헤더 | 의미 |
 |---|---|
