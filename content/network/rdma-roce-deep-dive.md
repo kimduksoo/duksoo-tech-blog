@@ -6,11 +6,9 @@ tags: ["RDMA", "RoCE", "InfiniBand", "Network", "GPU", "MLOps", "정리"]
 keywords: ["RDMA", "RoCE v2", "RoCE 설정", "InfiniBand", "PFC", "DCQCN", "ECN", "CNP", "GPUDirect RDMA", "NCCL", "무손실 이더넷", "lossless ethernet", "NVMe-oF", "QP", "verbs"]
 ---
 
-# RDMA와 RoCE v2 완전정리
-
 GPU 클러스터를 다루기 시작하면 반드시 마주치는 단어가 RDMA다. NCCL 로그에 IB가 찍히고, 스토리지 벤더는 NVMe-oF를 말하고, 네트워크 팀은 PFC 얘기를 꺼낸다. 이 글은 그 조각들이 어떻게 하나의 그림으로 이어지는지를, 용어 하나 빼놓지 않고 정리한 기록이다.
 
-> 읽는 순서: RDMA가 무엇인지 → 어떤 객체들로 동작하는지 → RoCE는 그중 어떤 구현인지 → 왜 설정이 까다로운지 → 서버와 스위치에서 실제로 뭘 만지는지.
+순서는 이렇게 잡았다. 먼저 RDMA가 무엇인지 보고, 어떤 객체들로 동작하는지 뜯어본 다음, RoCE가 그중 어떤 구현인지 위치를 잡는다. 이어서 왜 설정이 까다로운지를 짚고, 마지막으로 서버와 스위치에서 실제로 뭘 만지는지로 넘어간다.
 
 ---
 
