@@ -863,7 +863,7 @@ nvidia-smi topo -m     # PIX / PXB 면 좋고, SYS 면 CPU를 거치는 것
 | **Node Interleaving** | **Disabled** (= NUMA 유지) | 인터리빙을 켜면 NUMA 구조가 사라져 NIC 로컬 노드에 프로세스를 고정할 수 없다. RDMA는 NIC-메모리 지역성이 성능을 좌우한다 |
 | **Sub-NUMA Clustering (SNC) / NPS** | 대개 **끄거나 NPS1**. 정교하게 핀 고정할 자신이 있으면 세분화 | 노드를 잘게 쪼개면 정렬이 어긋났을 때 손해가 크다 |
 | **IOMMU (VT-d / AMD-Vi)** | SR-IOV나 컨테이너 격리가 필요하면 **Enabled**, 순수 베어메탈이면 성능상 pass-through | 활성 시 커널 파라미터에 `iommu=pt` 를 주면 DMA 변환 오버헤드를 줄일 수 있다 |
-| **SR-IOV** | VF를 컨테이너·VM에 붙일 거면 **Enabled** | 쿠버네티스에서 RDMA를 쓰려면 보통 SR-IOV VF + device plugin 조합 |
+| **SR-IOV** | VF를 컨테이너·VM에 붙일 거면 **Enabled** | 쿠버네티스에서 RDMA를 쓰려면 보통 SR-IOV VF + device plugin 조합. 9.6 참고 |
 | **DDIO (Intel Data Direct I/O) / DCA** | **Enabled** | NIC의 DMA 데이터를 DRAM이 아니라 LLC에 직접 넣어 지연을 줄인다. 다만 LLC를 잠식하므로 워크로드에 따라 확인 |
 | **Secure Boot** | 서명 안 된 OFED 커널 모듈을 쓸 거면 걸림돌 | 필요하면 모듈에 서명하거나 Secure Boot를 끈다 |
 
@@ -1002,7 +1002,105 @@ ibv_devinfo -d mlx5_0 | grep -i mtu
 
 경로상 한 곳이라도 MTU가 작으면 그 값으로 떨어지거나 통신이 끊긴다. **스위치 MTU는 9216 정도로 넉넉히 잡는다.**
 
-### 9.5 설정을 부팅 시 자동 적용
+### 9.5 본딩(LAG)과 멀티레일
+
+포트를 여러 개 묶는 이야기다. 부르는 이름이 여럿인데 같은 것을 가리킨다. 서버 쪽에서는 **본딩**(`bond0` 같은 인터페이스), 스위치 쪽에서는 **LAG**(Link Aggregation Group), 양쪽이 협상하는 프로토콜은 **LACP**(802.3ad)다.
+
+**여기에 RoCE의 함정이 둘 있다.**
+
+**첫째, 일반 본딩으로는 RDMA가 안 탄다.** 본딩은 커널의 netdev 계층에서 동작하는데 RDMA는 그 계층을 통째로 건너뛴다. 평소처럼 `bond0` 를 만들어놓아도 RDMA 트래픽은 본딩을 인지하지 못한다. NIC 하드웨어가 본딩을 알아야 하고, 그래서 별도 기능이 필요하다.
+
+NVIDIA는 **RoCE LAG**를 지원하지만 조건이 붙는다.
+
+- **두 포트가 같은 카드 위에 있어야 한다.** 카드 두 장을 묶으면 RoCE LAG는 동작하지 않는다
+- 지원 모드가 제한적이다 (active-backup, balance-xor, 802.3ad)
+- LAG가 걸리면 RDMA 디바이스 이름이 `mlx5_bond_0` 형태로 바뀐다. **`NCCL_IB_HCA` 와 GID index를 다시 잡아야 한다**
+
+Broadcom `bnxt_re` 는 지원 범위가 드라이버 버전마다 다르므로 문서를 먼저 확인해야 한다.
+
+**둘째, LAG는 기대만큼 빨라지지 않는다.** 10.5의 ECMP 편중과 같은 원리다. LAG는 flow 단위로 해시해 포트를 고르는데, RDMA는 flow 개수가 적고 QP 하나가 수십 Gbps를 혼자 쓴다.
+
+```mermaid
+flowchart LR
+    subgraph LAG["본딩 / LAG · 단일 QP는 포트 하나만 탄다"]
+        direction LR
+        Q["QP 하나"] --> B["bond0<br/>flow 해시로 포트 선택"]
+        B --> P1["포트 1<br/>100G 포화"]
+        B -.->|"안 씀"| P2["포트 2<br/>유휴"]
+    end
+    style P1 fill:#fdeaea,stroke:#e05656,color:#0f172a
+    style P2 fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+```
+
+100G 두 개를 묶어도 단일 연결 최대 처리량은 여전히 100G다. 그래서 **GPU 클러스터에서는 본딩 대신 멀티레일을 쓴다.** NIC마다 별도 서브넷을 주고 NCCL이 여러 NIC을 동시에 병렬로 쓰게 하는 방식이다.
+
+```mermaid
+flowchart LR
+    subgraph RAIL["멀티레일 · NIC마다 독립 경로"]
+        direction LR
+        N["NCCL"] --> R1["NIC 1 · 서브넷 A"]
+        N --> R2["NIC 2 · 서브넷 B"]
+        N --> R3["NIC 3 · 서브넷 C"]
+        N --> R4["NIC 4 · 서브넷 D"]
+    end
+    style N fill:#cfe0f9,stroke:#2563eb,color:#0f172a
+    style R1 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style R2 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style R3 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style R4 fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+```
+
+| | 본딩 / LAG | 멀티레일 |
+|---|---|---|
+| 구성 | 논리 인터페이스 1개 | NIC마다 독립 |
+| 단일 QP 처리량 | 포트 1개 속도 | 해당 없음 (여러 QP로 분산) |
+| 합산 대역폭 | 해시 편중으로 손해 | 잘 나온다 |
+| 이중화 | 자동 | 앱·라이브러리가 처리 |
+| GPU 학습 | 잘 쓰지 않는다 | **표준** |
+
+**이중화가 목적이면 본딩, 대역폭이 목적이면 멀티레일이다.** 둘을 섞어 쓰려다 RoCE LAG 조건에 걸려 시간을 버리는 경우가 많다.
+
+멀티레일을 쓴다면 8.4의 NUMA 정렬을 NIC마다 해야 한다. GPU와 NIC을 같은 PCIe 스위치 아래로 짝지어 배치하고, NCCL에 사용할 디바이스를 명시한다.
+
+```bash
+export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_3
+nvidia-smi topo -m        # GPU-NIC 짝이 PIX/PXB 인지 확인
+```
+
+### 9.6 컨테이너와 쿠버네티스
+
+파드 안에서 RDMA를 쓰려면 호스트의 RDMA 장치에 접근해야 하는데, 그냥 되지 않는다. 방식은 둘이다.
+
+| 방식 | 특징 | 필요한 것 |
+|---|---|---|
+| **SR-IOV** | 물리 NIC을 VF로 쪼개 파드마다 전용 NIC을 준다. 격리가 강하다 | BIOS의 SR-IOV·IOMMU 활성, SR-IOV Network Device Plugin, Multus CNI, SR-IOV CNI |
+| **RDMA shared device plugin** | 호스트의 물리 장치를 파드들이 공유한다. 구성이 단순하다 | RDMA device plugin |
+
+파드 스펙에는 리소스로 선언한다.
+
+```yaml
+resources:
+  limits:
+    rdma/hca_shared_devices_a: 1
+```
+
+**자주 걸리는 함정 세 가지가 있다.**
+
+**1. memlock 한계.** 가장 흔하다. RDMA는 메모리를 pin 해야 하는데 컨테이너 기본 memlock 한계가 64KB라 `ibv_reg_mr` 이 “Cannot allocate memory” 로 실패한다.
+
+```yaml
+securityContext:
+  capabilities:
+    add: ["IPC_LOCK"]
+```
+
+`IPC_LOCK` 권한과 memlock ulimit 상향이 둘 다 필요하다.
+
+**2. VF는 PF의 QoS 설정을 물려받지 않는다.** 호스트에서 `trust dscp`, PFC, ECN을 다 잡아놨어도 VF에는 별도로 적용해야 하는 경우가 있다. 이걸 놓치면 컨테이너 트래픽만 lossless 큐를 타지 못하고, 6.5에서 말한 조용히 무너지는 상황이 그대로 재현된다. **컨테이너 환경에서 특히 놓치기 쉬운 지점이다.**
+
+**3. GPUDirect까지 쓰면 더 복잡하다.** 드라이버, `nvidia-peermem`, device plugin, 토폴로지 인식이 전부 맞아야 한다. 수동으로 맞추기보다 **NVIDIA Network Operator와 GPU Operator**를 쓰는 편이 낫다. SR-IOV 구성과 드라이버 설치까지 함께 처리해준다.
+
+### 9.7 설정을 부팅 시 자동 적용
 
 sysfs 설정은 재부팅하면 날아간다. systemd 유닛이나 udev 룰로 고정한다.
 
@@ -1614,6 +1712,8 @@ flowchart LR
 | **L2 / L3 / L4** | Layer 2 / 3 / 4 | 각각 이더넷, IP, TCP·UDP 계층 |
 | **ECMP** | Equal-Cost Multi-Path | 비용이 같은 여러 경로에 트래픽을 해시로 분산시키는 라우팅 |
 | **SFP28 / QSFP28** | | 25G급, 100G급 광 트랜시버 규격 |
+| **LAG** | Link Aggregation Group | 여러 물리 포트를 하나로 묶는 것. 서버 쪽에서는 본딩(bonding)이라 부른다 |
+| **LACP** | Link Aggregation Control Protocol (802.3ad) | 양쪽이 LAG를 협상하는 프로토콜 |
 
 ### 서버와 하드웨어
 
@@ -1632,7 +1732,7 @@ flowchart LR
 | **P2P** | Peer-to-Peer | CPU를 거치지 않는 PCIe 장치 간 직접 전송 |
 | **IOMMU** | I/O Memory Management Unit | 장치의 DMA 주소를 변환·격리하는 장치. Intel은 VT-d, AMD는 AMD-Vi |
 | **SR-IOV** | Single Root I/O Virtualization | 물리 NIC 하나를 여러 가상 기능으로 나누는 기술 |
-| **VF** | Virtual Function | SR-IOV로 나뉜 가상 NIC 하나 |
+| **PF / VF** | Physical / Virtual Function | SR-IOV에서 물리 NIC 본체와 거기서 나뉜 가상 NIC. VF는 PF의 QoS 설정을 자동으로 물려받지 않는다 |
 | **DDIO / DCA** | Data Direct I/O / Direct Cache Access | NIC의 DMA 데이터를 DRAM 대신 CPU 캐시에 직접 넣는 기능 |
 | **NVRAM** | Non-Volatile RAM | 카드 설정을 저장하는 비휘발성 영역. Broadcom은 여기서 RDMA를 켠다 |
 
@@ -1645,6 +1745,7 @@ flowchart LR
 | **MPI** | Message Passing Interface | HPC의 전통적인 분산 통신 표준 |
 | **HPC** | High Performance Computing | 슈퍼컴퓨터급 과학 계산 분야 |
 | **GDR** | GPUDirect RDMA | GPU 메모리와 NIC을 PCIe로 직접 연결해 호스트 메모리를 거치지 않는 기술 |
+| **CNI** | Container Network Interface | 쿠버네티스의 네트워크 플러그인 규격. RDMA에는 Multus와 SR-IOV CNI를 함께 쓴다 |
 
 ### 스토리지와 기타
 
