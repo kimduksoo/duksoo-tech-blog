@@ -536,6 +536,8 @@ headroom에 필요한 크기는 이 네 가지의 합이다.
 
 그래서 스위치 설정에 **케이블 길이**를 넣는 항목이 있다. 서버 NIC 쪽에도 `mlnx_qos --cable_len` 이 있다. 케이블 길이를 실제보다 짧게 잡으면 headroom이 모자라 드롭이 나고, 무손실이 깨진다.
 
+위 그림에는 아직 ECN 임계치가 없다. ECN을 다루고 나서 6.5에서 두 임계치의 순서 관계까지 포함한 전체 그림을 다시 본다. 실제 튜닝에서 가장 먼저 확인해야 하는 것이 그 순서다.
+
 ### 5.5 no-drop 우선순위는 어떻게 합의하나
 
 어느 priority를 lossless로 다룰지는 링크 양끝이 같은 값을 알고 있어야 한다. 한쪽만 알고 있으면 PFC는 아무 일도 하지 않는다. 방법은 둘이다.
@@ -657,6 +659,67 @@ CNP는 “혼잡하니 줄여라”는 신호다. 그런데 이 신호가 혼잡
 - **별도 우선순위**(관례상 priority 6, DSCP 48)에 배치
 - **strict priority** 스케줄링으로 최우선 전송
 - **PFC는 걸지 않는다.** 혼잡 신호가 혼잡으로 막히는 자기모순을 피하기 위함이다. CNP는 작고 드물어서 lossy로 둬도 실무상 문제되지 않는다
+
+### 6.5 PFC와 DCQCN은 함께 쓴다: 임계치 순서가 전부다
+
+여기서 자주 나오는 오해를 짚고 간다. PFC와 DCQCN은 **둘 중 하나를 고르는 게 아니라 둘 다 켜는 것**이다. 다만 역할이 다르다.
+
+- **DCQCN이 주 제어 장치다.** 평상시 혼잡은 전부 여기서 처리되어야 한다
+- **PFC는 안전망이다.** DCQCN이 미처 반응하지 못한 순간만 받아낸다
+
+DCQCN은 폐루프다. 스위치가 마킹하고, 수신 서버까지 가고, CNP가 돌아오고, 그제서야 송신 속도가 내려간다. 최소 한 바퀴(RTT)가 필요하다. 그런데 마이크로버스트와 incast는 그 한 바퀴보다 빠르다. 여러 노드가 동시에 한 곳으로 쏘면 버퍼는 마이크로초 만에 찬다. **그 순간을 막는 것이 PFC의 존재 이유다.**
+
+그래서 설정의 핵심은 둘 중 무엇을 켜느냐가 아니라 **임계치 순서**다. 5.4의 버퍼 그림에 ECN 임계치까지 얹으면 전체 그림이 이렇게 완성된다.
+
+```mermaid
+flowchart TB
+    T["▲ 버퍼 점유율 높음"]
+    HR["headroom<br/>절대 침범 금지. 침범하면 드롭"]
+    XF["PFC XOFF 임계치<br/>여기까지 왔다면 이미 실패한 것"]
+    GAP["여유 구간"]
+    EMX["ECN max threshold<br/>거의 모든 패킷에 CE 마킹"]
+    EMN["ECN min threshold<br/>DCQCN이 여기서 먼저 개입해야 정상"]
+    NM["일반 사용 영역"]
+    B["▼ 버퍼 점유율 낮음"]
+
+    T --- HR --- XF --- GAP --- EMX --- EMN --- NM --- B
+
+    style T fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style B fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style HR fill:#fdeaea,stroke:#e05656,color:#0f172a
+    style XF fill:#fdeaea,stroke:#e05656,color:#0f172a
+    style GAP fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    style EMX fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style EMN fill:#e7f6ec,stroke:#22a15d,color:#0f172a
+    style NM fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+```
+
+**ECN 임계치는 PFC XOFF 임계치보다 충분히 낮아야 한다.** 순서가 뒤집히면, 즉 ECN 임계치가 PFC보다 높게 잡히면 DCQCN이 일할 기회를 얻기 전에 PFC가 먼저 터진다. 그러면 설정은 다 해놓고도 사실상 PFC만 켠 것과 같아진다. “왜 CNP도 나오는데 PAUSE가 계속 뜨지”의 흔한 원인이다.
+
+**하나만 켰을 때 벌어지는 일**
+
+| 구성 | 결과 |
+|---|---|
+| **PFC만** | 동작은 한다. 하지만 송신 속도를 줄이는 주체가 없어 PAUSE가 상시로 터진다. congestion spreading, victim flow, HOL 블로킹, 최악은 deadlock. 8노드는 되는데 64노드에서 무너지는 전형 |
+| **DCQCN만** | 제어 루프가 도는 동안 버퍼가 넘쳐 드롭이 난다. 구형 NIC이면 go-back-N으로 처리량이 붕괴 |
+| **둘 다 끄면** | 한가할 때는 잘 되다가 부하가 걸리면 무너진다 |
+
+**정상인지 판정하는 법**
+
+```bash
+ethtool -S ens1f0 | grep -E 'prio3_pause|np_cnp_sent|rp_cnp_handled'
+```
+
+| 관측 | 해석 | 조치 |
+|---|---|---|
+| CNP 활발, PAUSE는 가끔 | **정상.** DCQCN이 주로 일하고 PFC는 안전망 역할만 | 없음 |
+| CNP 활발, PAUSE도 상시 | ECN 임계치가 너무 높다 | min/max threshold를 낮춘다 |
+| CNP는 0, PAUSE만 상시 | DCQCN이 아예 안 돌고 있다 | `roce_np`/`roce_rp` 설정과 DSCP 매핑 확인 |
+| 둘 다 조용 | 아직 혼잡이 없거나 마킹 자체가 안 되고 있다 | 부하를 준 상태에서 재측정 |
+
+**PFC 카운터는 0에 가까울수록 좋고, CNP 카운터는 돌고 있어야 정상이다.** PFC가 자주 발동한다는 것은 소방차가 매일 출동한다는 뜻이지 소방 시스템이 잘 돌아간다는 뜻이 아니다.
+
+14장에서 볼 selective repeat이나 AWS SRD처럼 의도적으로 PFC를 빼는 구성도 있지만, 그것은 NIC과 패브릭이 손실을 감내하도록 설계되었을 때의 이야기다. **일반적인 RoCE v2 구축이라면 둘 다 켜고, ECN 임계치를 조여 PFC 발동을 최소화하는 방향으로 튜닝한다.**
 
 ---
 
@@ -981,7 +1044,7 @@ flowchart TD
 | **DSCP → TC 매핑** | 스위치 내부 큐로 연결하는 고리 | 마킹은 살아 있는데 lossless 큐로 안 들어간다 |
 | **PFC on TC3** | 무손실 보장 | 버퍼 넘칠 때 드롭 → go-back-N 폭발 |
 | **버퍼·headroom** | PAUSE 반응 시간 동안의 in-flight 흡수 | PFC를 켜도 드롭이 난다 |
-| **ECN/WRED** | 근본적인 혼잡 제어 | PFC만으로 버티다 storm 발생 |
+| **ECN/WRED** | 근본적인 혼잡 제어. 임계치는 PFC XOFF보다 낮게(6.5 참고) | PFC만으로 버티다 storm 발생 |
 | **CNP 큐 strict priority** | 혼잡 신호 보호 | 제어 루프가 늦어져 진동 발생 |
 | **MTU 9216** | 점보 프레임 통과 | 조각화 또는 드롭 |
 | **PFC Watchdog** | deadlock 방지 | 순환 대기 시 fabric 전체 마비 |
