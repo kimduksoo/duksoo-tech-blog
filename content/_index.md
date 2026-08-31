@@ -56,6 +56,9 @@ AI 활용 자동화, 프로토타이핑
 
 <--->
 
+### [Network](/network/)
+RDMA·RoCE, GPU 클러스터 패브릭
+
 <--->
 
 {{< /columns >}}

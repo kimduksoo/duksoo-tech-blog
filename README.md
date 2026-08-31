@@ -25,6 +25,7 @@
 - `backend/` — 백엔드 이슈/경험
 - `finops/` — 비용 최적화
 - `kubernetes/` — K8s/EKS
+- `network/` — 데이터센터 네트워크, RDMA/RoCE
 - `observability/` — 모니터링/관측성
 - `security/` — 보안
 
